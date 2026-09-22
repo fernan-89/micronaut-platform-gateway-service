@@ -1,0 +1,52 @@
+# ADR-022: Platform Gateway — routing, rate limiting and security posture
+
+## Status
+Accepted
+
+## Context
+Every service so far has been reachable directly, on its own port, trusting whatever `X-Tenant-Id` and
+`X-Executor` a caller sent until ADR-020/ADR-021 introduced real authentication. Journey 3 called for a
+"dedicated gateway": a single public entry point, so no service needs its own edge concerns (CORS, rate
+limiting, a public port) and a client only needs to know one address.
+
+## Decision
+
+### A thin, stateless reverse proxy
+`micronaut-platform-gateway-service` (port 8088) holds no business logic. `RouteTable` maps the first path
+segment (the BIAN Service Domain) to an upstream base URL from `gateway.routes`; `UpstreamProxy` forwards
+method, path, query, body and headers — **including `Authorization`** — and relays the upstream's answer,
+status and headers unchanged. Each upstream still verifies the token itself (defence in depth: a
+misconfigured or bypassed gateway is not a full authentication bypass).
+
+### 404, not 403, for what the gateway will not serve
+An unconfigured Service Domain and a path on `gateway.denied-paths` (the service-to-service token endpoint,
+the raw revocation list — both meant for direct east-west calls, never a public client) are handled
+identically: a 404 `ERR-GTW-00404`. The gateway never confirms or denies that an internal endpoint exists.
+
+### Timeouts and size are mapped to their own RFC 7807 codes
+The upstream HTTP client is a **separate** named client (`gateway-upstream`, its own
+`micronaut.http.services.gateway-upstream.*` timeouts) so the gateway's own inbound timeout budget is never
+coupled to how long it waits on an upstream. A read timeout is `ERR-GTW-00504` (504); any other client-side
+failure (connection refused, DNS) is `ERR-GTW-00502` (502); a request body over `gateway.max-body-bytes` is
+`ERR-GTW-00413` (413), rejected before the upstream is even contacted.
+
+### Rate limiting is per caller, at the edge
+`RateLimiter` is a token bucket per caller (`gateway.rate-limit.requests-per-second` / `burst`), keyed by the
+authenticated `X-Executor` (derived from the verified token by `SecurityFilter`, upstream in the filter
+chain) when present, and by remote address otherwise — so an anonymous flood (credential stuffing against
+`session/initiate`) burns its own bucket, never a legitimate user's. A denied request is `429`
+`ERR-GTW-00429` with `Retry-After`. Buckets for callers that have gone quiet are pruned so the map is bounded.
+
+### Security: verify only, never issue
+The gateway runs the shared `SecurityFilter` (ADR-020/ADR-021) with the issuer's **public** keys only
+(`thinklab.security.jwks-url`) — it has no private key and cannot mint tokens. `thinklab.security.enabled`
+stays off by default, exactly like every other service, so the local stack keeps working without it.
+
+## Consequences
+- Positive: exactly one public port; upstream services can stay on their internal ports; rate limiting and
+  the security posture are enforced in one place instead of copy-pasted; each finding (404 vs denied, 502 vs
+  504, 429) is machine-distinguishable via `error_code`.
+- Negative: the gateway is a single point of failure and adds one network hop to every call; its own
+  availability now matters as much as the identity service's. Response streaming is not implemented yet (the
+  body is buffered in memory up to `gateway.max-body-bytes`), so it is unsuitable for large uploads or
+  downloads without raising that limit.

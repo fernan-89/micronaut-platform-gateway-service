@@ -1,0 +1,240 @@
+// ==============================================================================================
+// /**
+//  * @file        build.gradle
+//  * @module      Thinklab route-registry-service Build Manifest & Pipeline Orchestration (Groovy DSL)
+//  * @version     v3.5.0-NASA-SRE-PROD-STABLE
+//  * @description Enterprise-grade, zero-trust build orchestration manifest utilizing Micronaut 4
+//  *              native Ahead-of-Time (AOT) and optimized JAR packaging.
+//  *              All fragile third-party OpenTelemetry SDKs have been purged. Telemetry is now
+//  *              100% handled natively via our custom TraceIdFilter (ADR-011).
+//  *
+//  * @architectural_directives
+//  *   1. Identity Sovereignty: Strict UUID enforcement across all domain layers.
+//  *   2. Non-Blocking Reactive First: Fully driven by Project Reactor and Netty EventLoops.
+//  *   3. Observability Mesh: Native W3C trace-context extraction without fragile SDKs.
+//  *
+//  * @maintainer  Thinklab Core Infrastructure & High-Assurance Engineering Team
+//  * @java_target JDK 21 LTS (Virtual Threads, Pattern Matching, Record Patterns fully enabled)
+//  */
+// ==============================================================================================
+
+plugins {
+    id 'io.micronaut.application' version '4.4.2'
+    id 'io.micronaut.aot'         version '4.4.2'
+    id 'jacoco'
+}
+
+group   = 'com.thinklab'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+application {
+    mainClass = 'com.thinklab.Application'
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+        // CI resolves the shared kit from GitHub Packages (ADR-001 of thinklab-service-kit).
+        url = uri('https://maven.pkg.github.com/fernan-89/thinklab-service-kit')
+        credentials {
+            username = System.getenv('GITHUB_ACTOR')
+            password = System.getenv('GITHUB_TOKEN')
+        }
+    }
+}
+
+dependencies {
+    implementation         'com.thinklab:thinklab-service-kit:0.3.0'
+
+    // ------------------------------------------------------------------------------------------
+    // /**
+    //  * @layer       AST Manipulation & Compile-time Metaprogramming Processors
+    //  * @note        ORDER IS CRITICAL: Lombok MUST precede Micronaut processors.
+    //  */
+    // ------------------------------------------------------------------------------------------
+    annotationProcessor    'org.projectlombok:lombok:1.18.36'
+    compileOnly            'org.projectlombok:lombok:1.18.36'
+
+    annotationProcessor    'io.micronaut:micronaut-http-validation'
+    annotationProcessor    'io.micronaut.serde:micronaut-serde-processor'
+    annotationProcessor    'io.micronaut.validation:micronaut-validation-processor'
+    annotationProcessor    'io.micronaut.openapi:micronaut-openapi'
+
+    // ------------------------------------------------------------------------------------------
+    // /**
+    //  * @layer       Core Application Framework & High-Performance Web Services
+    //  */
+    // ------------------------------------------------------------------------------------------
+    implementation         'io.micronaut:micronaut-management'
+    implementation         'io.micronaut.micrometer:micronaut-micrometer-core'
+    implementation         'io.micronaut.micrometer:micronaut-micrometer-registry-prometheus'
+    implementation         'io.micronaut:micronaut-http-client'
+    implementation         'io.micronaut.serde:micronaut-serde-jackson'
+    implementation         'io.micronaut.validation:micronaut-validation'
+    implementation         'io.swagger.core.v3:swagger-annotations'
+    implementation         'jakarta.validation:jakarta.validation-api'
+
+    // ------------------------------------------------------------------------------------------
+    // /**
+    //  * @layer       Structured Telemetry & Log Emission (ADR-011)
+    //  */
+    // ------------------------------------------------------------------------------------------
+    runtimeOnly            'net.logstash.logback:logstash-logback-encoder:7.4'
+    runtimeOnly            'com.fasterxml.jackson.core:jackson-databind'
+    runtimeOnly            'ch.qos.logback:logback-classic'
+    runtimeOnly            'org.yaml:snakeyaml'
+
+    // ------------------------------------------------------------------------------------------
+    // /**
+    //  * @layer       Reactive Infrastructure & Non-Blocking Persistence
+    //  */
+    // ------------------------------------------------------------------------------------------
+    implementation         'io.projectreactor:reactor-core'
+
+    // ------------------------------------------------------------------------------------------
+    // /**
+    //  * @layer       High-Assurance Cryptography & Security Primitives
+    //  */
+    // ------------------------------------------------------------------------------------------
+    implementation         'org.bouncycastle:bcprov-jdk18on:1.85'
+
+    // ------------------------------------------------------------------------------------------
+    // /**
+    //  * @layer       Quality Assurance, Isolation & Test Harnesses
+    //  */
+    // ------------------------------------------------------------------------------------------
+    testImplementation     'io.micronaut:micronaut-http-client'
+    testImplementation     'io.micronaut.test:micronaut-test-junit5'
+    testImplementation     'org.junit.jupiter:junit-jupiter-api'
+    testRuntimeOnly        'org.junit.jupiter:junit-jupiter-engine'
+    testImplementation     'io.projectreactor:reactor-test'
+    testImplementation     'org.mockito:mockito-core'
+    testImplementation     'org.mockito:mockito-junit-jupiter'
+    testRuntimeOnly        'org.junit.platform:junit-platform-launcher'
+}
+
+// ==============================================================================================
+// /**
+//  * @directive   Compiler Compilation Directives & Diagnostics
+//  */
+// ==============================================================================================
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.compilerArgs << '-parameters' << '-Xlint:unchecked' << '-Xlint:deprecation'
+    options.fork = true
+    options.forkOptions.jvmArgs << '-Dmicronaut.openapi.views.spec=swagger-ui.enabled=true,swagger-ui.theme=flattop'
+}
+
+// ==============================================================================================
+// /**
+//  * @directive   Cloud-Native Reproducible Build Protocol
+//  */
+// ==============================================================================================
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+// ==============================================================================================
+// /**
+//  * @directive   CI/CD Test Strategy & Fail-Fast Concurrency
+//  */
+// ==============================================================================================
+tasks.named('test') {
+    useJUnitPlatform()
+    failFast = true
+    systemProperty "net.bytebuddy.experimental", "true"
+    maxParallelForks = (Runtime.runtime.availableProcessors().intdiv(2) ?: 1)
+
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat 'full'
+    }
+}
+
+// ==============================================================================================
+// /**
+//  * @directive   GraalVM Native Image Compilation Directives
+//  */
+// ==============================================================================================
+graalvmNative {
+    toolchainDetection = false
+    binaries {
+        all {
+            buildArgs.add('-H:+SharedArenaSupport')
+        }
+    }
+}
+
+// ==============================================================================================
+// /**
+//  * @directive   Ahead-of-Time (AOT) Configuration & Micronaut Engine Tuning
+//  */
+// ==============================================================================================
+micronaut {
+    version "4.4.2"
+    runtime("netty")
+    testRuntime("junit5")
+
+    processing {
+        incremental(true)
+        annotations("com.thinklab.*")
+    }
+
+    aot {
+        optimizeServiceLoading = true
+        convertYamlToJava      = false
+        precomputeOperations   = true
+        cacheEnvironment       = true
+        optimizeClassLoading   = true
+        deduceEnvironment      = true
+        optimizeNetty          = true
+        replaceLogbackXml      = false
+    }
+}
+
+// ==============================================================================================
+// Coverage evidence (quality gate). The report is a by-product of every `test` run;
+// the floor below is enforced by `./gradlew check` so coverage can only ratchet upwards.
+// ==============================================================================================
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = true
+    }
+    classDirectories.setFrom(files(classDirectories.files.collect {
+        fileTree(dir: it, exclude: ['**/$*', '**/*$Definition*', '**/*$Introspection*', '**/*$Intercepted*', '**/Application.class'])
+    }))
+}
+
+tasks.named('test') {
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+tasks.named('jacocoTestCoverageVerification') {
+    dependsOn tasks.named('test')
+    violationRules {
+        rule {
+            limit { counter = 'LINE';   value = 'COVEREDRATIO'; minimum = 1.00 }
+            limit { counter = 'BRANCH'; value = 'COVEREDRATIO'; minimum = 1.00 }
+        }
+    }
+    classDirectories.setFrom(tasks.named('jacocoTestReport').get().classDirectories)
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('jacocoTestCoverageVerification')
+}

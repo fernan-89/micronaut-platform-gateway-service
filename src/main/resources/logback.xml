@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================================================== -->
+<!-- /**                                                                                            -->
+<!--  * @file        logback.xml                                                                    -->
+<!--  * @module      Thinklab Infrastructure / Platform Gateway Service & Forensic Audit                     -->
+<!--  *                                                                                             -->
+<!--  * @description Ultra-high-throughput, non-blocking asynchronous logging topology.             -->
+<!--  *              Hardened for reactive event loops (Project Reactor/Netty) to guarantee zero    -->
+<!--  *              thread-blocking behavior under extreme peak loads and latency spikes.          -->
+<!--  *                                                                                             -->
+<!--  * @architecture ADR-003: Non-Blocking Observability & Telemetry                               -->
+<!--  *              - Console outputs use ANSI escape sequences with MDC traceId injection.        -->
+<!--  *              - File sinks use strict JSON structuring (LogstashEncoder) for ELK/Datadog.    -->
+<!--  *              - Async buffers prevent Disk I/O or stdout congestion from halting the JVM.    -->
+<!--  *                                                                                             -->
+<!--  * @architecture ADR-008: Reactive MDC Context Propagation Bridge                              -->
+<!--  *              - Full forensic telemetry matrix (traceId, clientIp, userAgent) injected       -->
+<!--  *                across all reactive boundaries for end-to-end traceability.                  -->
+<!--  *                                                                                             -->
+<!--  * @maintainer  Thinklab Systems Engineering Team                                              -->
+<!--  * @version     3.3.0 (Mission-Critical Zero-Blocking Edition + Forensic Origin Telemetry)     -->
+<!--  */                                                                                            -->
+<!-- ============================================================================================== -->
+<configuration scan="false">
+
+    <!-- ============================================================================================== -->
+    <!-- GRACEFUL SHUTDOWN HOOK                                                                         -->
+    <!-- Ensures asynchronous queues are flushed to disk prior to JVM termination.                      -->
+    <!-- ============================================================================================== -->
+    <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook"/>
+
+    <!-- ============================================================================================== -->
+    <!-- [SYNCHRONOUS] CONSOLE APPENDER (HUMAN-READABLE)                                                -->
+    <!-- Physical sink for standard output. Optimized pattern including full forensic telemetry matrix. -->
+    <!-- ============================================================================================== -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%cyan(%d{HH:mm:ss.SSS}) %gray([%-15.15thread]) %highlight(%-5level) %magenta(%-30.30logger{29}) %green([trace=%mdc{traceId:-NONE} | ip=%mdc{clientIp:-NONE} | client=%mdc{userAgent:-NONE}]) - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================================================== -->
+    <!-- [SYNCHRONOUS] AUDIT FILE APPENDER (ROLLING & STRUCTURED JSON)                                  -->
+    <!-- Physical sink for persistent storage with time-based rotation and historical bounds.           -->
+    <!-- Emits strictly structured JSON (Logstash format) enriched with domain and service metadata.    -->
+    <!-- ============================================================================================== -->
+    <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/audit.log</file>
+        <immediateFlush>false</immediateFlush>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/audit.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"thinklab-platform-gateway-service","domain":"platform-gateway"}</customFields>
+        </encoder>
+    </appender>
+
+    <!-- ============================================================================================== -->
+    <!-- [ASYNCHRONOUS] MISSION-CRITICAL CONSOLE WRAPPER                                                -->
+    <!-- Decouples logging from the main reactive event loop. Utilizes non-blocking push semantics.     -->
+    <!-- ============================================================================================== -->
+    <appender name="ASYNC_STDOUT" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="STDOUT" />
+        <queueSize>2048</queueSize>
+        <discardingThreshold>400</discardingThreshold>
+        <includeCallerData>false</includeCallerData>
+        <neverBlock>true</neverBlock>
+        <maxFlushTime>1000</maxFlushTime>
+    </appender>
+
+    <!-- ============================================================================================== -->
+    <!-- [ASYNCHRONOUS] MISSION-CRITICAL AUDIT FILE WRAPPER                                             -->
+    <!-- Protects reactive threads from disk I/O bottlenecks and filesystem latency spikes.             -->
+    <!-- ============================================================================================== -->
+    <appender name="ASYNC_AUDIT" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="AUDIT_FILE" />
+        <queueSize>2048</queueSize>
+        <discardingThreshold>400</discardingThreshold>
+        <includeCallerData>false</includeCallerData>
+        <neverBlock>true</neverBlock>
+        <maxFlushTime>1000</maxFlushTime>
+    </appender>
+
+    <!-- ============================================================================================== -->
+    <!-- ISOLATED AUDIT LOGGER (STRICT ENCAPSULATION)                                                   -->
+    <!-- ============================================================================================== -->
+    <logger name="AUDIT_LOG" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC_AUDIT"/>
+    </logger>
+
+    <!-- ============================================================================================== -->
+    <!-- THIRD-PARTY NOISE REDUCTION (SILENCERS)                                                        -->
+    <!-- ============================================================================================== -->
+    <logger name="org.mongodb.driver.cluster" level="WARN"/>
+    <logger name="org.mongodb.driver.client" level="WARN"/>
+    <logger name="org.mongodb.driver.connection" level="WARN"/>
+    <logger name="io.netty" level="WARN"/>
+    <logger name="reactor.netty" level="WARN"/>
+
+    <!-- ============================================================================================== -->
+    <!-- ROOT LOGGER SINK                                                                               -->
+    <!-- ============================================================================================== -->
+    <root level="INFO">
+        <appender-ref ref="ASYNC_STDOUT"/>
+    </root>
+
+</configuration>

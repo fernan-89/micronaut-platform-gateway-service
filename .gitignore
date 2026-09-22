@@ -1,0 +1,66 @@
+# ==============================================================================
+# Thinklab Identity - Repository Shield Configuration
+# ------------------------------------------------------------------------------
+# Purpose: Prevents local environment leakage and build artifacts from 
+# contaminating the distributed source of truth.
+# ==============================================================================
+
+# --- Operating Systems ---
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# --- Build and Distribution ---
+# Prevents sharing of compiled bytecode and local caches that cause JDK conflicts.
+.gradle/
+build/
+target/
+/out/
+bin/
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+
+# --- Micronaut & Runtime Specifics ---
+# Shields internal framework state and AOT generated metadata.
+.micronaut/
+dependency-reduced-pom.xml
+.gradle-test-report/
+
+# --- IDE: IntelliJ IDEA ---
+# Prevents local IDE configurations from overriding project toolchains.
+.idea/
+*.iml
+*.iws
+*.ipr
+cmake-build-*/
+atlassian-ide-plugin.xml
+
+# --- IDE: Eclipse ---
+.project
+.classpath
+.settings/
+.factorypath
+
+# --- IDE: VS Code ---
+.vscode/
+
+# --- Logging & Observability ---
+# Prevents local diagnostic logs from being committed.
+*.log
+logs/
+
+# --- Infrastructure & Environment (Security Policy) ---
+# NEVER commit environment files containing secrets or local DB URLs.
+.env
+*.properties.local
+*.yml.local
+gradle.properties
+!gradle.properties.template
+.mcp.json
+
+# Keep the wrapper jar so a fresh clone can run ./gradlew
+!gradle/wrapper/gradle-wrapper.jar

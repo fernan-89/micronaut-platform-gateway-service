@@ -1,0 +1,6 @@
+otel:
+  sdk:
+    disabled: true
+micronaut:
+  server:
+    port: -1
