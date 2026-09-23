@@ -139,8 +139,8 @@ thinklab:
   security:
     enabled: ${THINKLAB_SECURITY_ENABLED:false}
     service-name: thinklab-platform-gateway-service
-    jwks-url: ${THINKLAB_JWKS_URL:http://localhost:8082/party-authentication/v1/.well-known/jwks.json}
-    revocation-url: ${THINKLAB_REVOCATION_URL:http://localhost:8082/party-authentication/v1/session/revoked}
+    jwks-url: ${THINKLAB_JWKS_URL:`http://localhost:8082/party-authentication/v1/.well-known/jwks.json`}
+    revocation-url: ${THINKLAB_REVOCATION_URL:`http://localhost:8082/party-authentication/v1/session/revoked`}
     public-paths:
       - /health
       - /prometheus
@@ -152,3 +152,8 @@ thinklab:
       - /party-authentication/v1/session/refresh
       - /party-authentication/v1/session/revoke
       - /party-authentication/v1/.well-known
+      # Also on gateway.denied-paths: exempted here too so SecurityFilter lets the request reach
+      # RouteTable, which then answers 404 regardless of whether a token was presented - the same
+      # response an unknown domain gets, never a 401 that would hint the path exists.
+      - /party-authentication/v1/token
+      - /party-authentication/v1/session/revoked
