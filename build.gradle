@@ -51,7 +51,7 @@ repositories {
 }
 
 dependencies {
-    implementation         'com.thinklab:thinklab-service-kit:0.3.0'
+    implementation         'com.thinklab:thinklab-service-kit:0.4.0'
 
     // ------------------------------------------------------------------------------------------
     // /**
