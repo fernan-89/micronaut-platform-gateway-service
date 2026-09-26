@@ -60,7 +60,7 @@
     </appender>
 
     <!-- ============================================================================================== -->
-    <!-- [ASYNCHRONOUS] MISSION-CRITICAL CONSOLE WRAPPER                                                -->
+    <!-- [ASYNCHRONOUS] CONSOLE WRAPPER                                                                 -->
     <!-- Decouples logging from the main reactive event loop. Utilizes non-blocking push semantics.     -->
     <!-- ============================================================================================== -->
     <appender name="ASYNC_STDOUT" class="ch.qos.logback.classic.AsyncAppender">
@@ -73,7 +73,7 @@
     </appender>
 
     <!-- ============================================================================================== -->
-    <!-- [ASYNCHRONOUS] MISSION-CRITICAL AUDIT FILE WRAPPER                                             -->
+    <!-- [ASYNCHRONOUS] AUDIT FILE WRAPPER                                                              -->
     <!-- Protects reactive threads from disk I/O bottlenecks and filesystem latency spikes.             -->
     <!-- ============================================================================================== -->
     <appender name="ASYNC_AUDIT" class="ch.qos.logback.classic.AsyncAppender">

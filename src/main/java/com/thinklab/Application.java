@@ -49,7 +49,7 @@ public class Application {
      */
     public static void main(String[] args) {
 
-        // 1. Mission Critical: Enforce UTC globally to prevent time-drift bugs
+        // 1. Enforce UTC globally to prevent time-drift bugs
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
 
         // 2. SRE Forensics: Inject System Boot Context into the MDC to eliminate [NONE] tags during warmup
@@ -64,16 +64,16 @@ public class Application {
             MDC.put("ip", "INTERNAL-MESH");
         }
 
-        // 3. Mission Critical: Enable automatic MDC propagation hooks & Reactor-to-MDC bridge
+        // 3. Enable automatic MDC propagation hooks & Reactor-to-MDC bridge
         Hooks.enableAutomaticContextPropagation();
         ReactorMdcBridge.register();
 
-        // 4. Mission Critical: Catch catastrophic thread deaths that bypass the Reactive context
+        // 4. Catch catastrophic thread deaths that bypass the Reactive context
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) ->
                 log.error("[JVM_FATAL] - Unhandled exception in thread [{}]: {}", thread.getName(), throwable.getMessage(), throwable)
         );
 
-        // 5. Mission Critical: Inject Bouncy Castle to satisfy native JVM cryptographic dependencies
+        // 5. Inject Bouncy Castle to satisfy native JVM cryptographic dependencies
         Security.addProvider(new BouncyCastleProvider());
 
         // 6. Boot: Use the Builder for explicit control over startup arguments and container lifecycle
