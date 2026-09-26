@@ -1,8 +1,8 @@
 // ==============================================================================================
 // /**
 //  * @file        build.gradle
-//  * @module      Thinklab route-registry-service Build Manifest & Pipeline Orchestration (Groovy DSL)
-//  * @version     v3.5.0-NASA-SRE-PROD-STABLE
+//  * @module      Thinklab Platform Gateway Service Build Manifest & Pipeline Orchestration (Groovy DSL)
+//  * @version     1.0.0
 //  * @description Enterprise-grade, zero-trust build orchestration manifest utilizing Micronaut 4
 //  *              native Ahead-of-Time (AOT) and optimized JAR packaging.
 //  *              All fragile third-party OpenTelemetry SDKs have been purged. Telemetry is now
@@ -25,7 +25,7 @@ plugins {
 }
 
 group   = 'com.thinklab'
-version = '0.1.0-SNAPSHOT'
+version = '1.0.0'
 
 java {
     toolchain {

@@ -13,7 +13,7 @@ import java.security.Security;
 import java.util.TimeZone;
 
 /**
- * Main Entry Point: Bootstrap class for the Thinklab Party Reference Data Directory Service.
+ * Main Entry Point: Bootstrap class for the Thinklab Platform Gateway Service.
  *
  * <p><b>Architectural Role:</b>
  * This class orchestrates the application bootstrap sequence using the Micronaut framework, ensuring
@@ -35,7 +35,7 @@ import java.util.TimeZone;
  * </ul>
  *
  * @author Thinklab Systems Engineering Team
- * @version 3.5.0-NASA-SRE-PROD
+ * @version 1.0.0
  * @since 1.0
  */
 public class Application {

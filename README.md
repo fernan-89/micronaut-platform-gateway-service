@@ -1,8 +1,8 @@
 # Thinklab Platform Gateway Service
 
-**Version:** v1.0.0-BIAN
+**Version:** 1.0.0
 
-**Status:** Production-Ready
+**Status:** Reference implementation — portfolio project
 
 ## Overview
 

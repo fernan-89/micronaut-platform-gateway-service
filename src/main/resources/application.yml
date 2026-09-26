@@ -10,7 +10,7 @@
 #  * @architecture ADR-011: Zero-Trust Resilient Telemetry (Framework-agnostic)
 #  *
 #  * @maintainer  Thinklab Systems Engineering Team
-#  * @target      Production (Mission-Critical NASA-Level Standard)
+#  * @target      Reference implementation (portfolio project)
 #  */
 # ==============================================================================================
 
