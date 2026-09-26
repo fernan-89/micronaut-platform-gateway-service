@@ -18,7 +18,7 @@
 <!--  *                across all reactive boundaries for end-to-end traceability.                  -->
 <!--  *                                                                                             -->
 <!--  * @maintainer  Thinklab Systems Engineering Team                                              -->
-<!--  * @version     3.3.0 (Mission-Critical Zero-Blocking Edition + Forensic Origin Telemetry)     -->
+<!--  * @version     3.3.0 (Zero-Blocking Edition + Forensic Origin Telemetry)                      -->
 <!--  */                                                                                            -->
 <!-- ============================================================================================== -->
 <configuration scan="false">

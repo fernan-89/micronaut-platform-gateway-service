@@ -1,8 +1,8 @@
 # ==============================================================================================
 # /**
 #  * @file        Dockerfile
-#  * @module      Thinklab Company Service Container Packaging Manifest
-#  * @version     v3.5.0-NASA-SRE-PROD-STABLE
+#  * @module      Thinklab Platform Gateway Service Container Packaging Manifest
+#  * @version     v3.5.0
 #  * @description Enterprise-grade, multi-stage Docker build optimized for Micronaut 4 AOT.
 #  *              Implements zero-trust runtime environments using Google Distroless.
 #  *              Uses standard distribution packaging (Thin JAR + Libs) to avoid build.gradle modifications.
@@ -45,8 +45,8 @@ RUN mkdir -p /app-libs && find build/install -path '*/lib/*.jar' -exec cp {} /ap
 FROM gcr.io/distroless/java21-debian12:nonroot AS runtime
 
 LABEL maintainer="Thinklab Core Infrastructure & High-Assurance Engineering Team"
-LABEL version="v3.5.0-NASA-SRE-PROD-STABLE"
-LABEL description="Thinklab Company Service - Mission-Critical Reactive Micronaut 4 Runtime"
+LABEL version="v3.5.0"
+LABEL description="Thinklab Platform Gateway Service - Reactive Micronaut 4 Runtime"
 LABEL enviroment="Personal Home-Lab for Development"
 LABEL git-repo="https://github.com/fernan-89/micronaut-platform-gateway-service"
 

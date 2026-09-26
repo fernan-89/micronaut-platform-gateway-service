@@ -2,7 +2,7 @@
 
 **Version:** v1.0.0-BIAN
 
-**Status:** Production-Ready
+**Status:** Reference implementation (ThinkLab portfolio project)
 
 ## Overview
 

@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.info.License;
  * to statically generate the official swagger.yml specification.
  *
  * @author Thinklab Core Infrastructure Team
- * @version 1.0.0-NASA-SRE-PROD
+ * @version 1.0.0
  * @since 1.0
  */
 @OpenAPIDefinition(

@@ -35,7 +35,7 @@ import java.util.TimeZone;
  * </ul>
  *
  * @author Thinklab Systems Engineering Team
- * @version 3.5.0-NASA-SRE-PROD
+ * @version 3.5.0
  * @since 1.0
  */
 public class Application {
