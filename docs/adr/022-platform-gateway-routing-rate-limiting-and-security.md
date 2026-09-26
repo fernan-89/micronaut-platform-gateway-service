@@ -73,7 +73,23 @@ alone, kept only on the body-carrying methods (`POST`/`PUT`/`PATCH`), is suffici
 request body (the original motivation) without that side effect. Fixed by moving `@Consumes(MediaType.ALL)`
 to method level and dropping `@Produces(MediaType.ALL)` entirely.
 
-**Known residual gap, accepted for now:** `/swagger-ui/**` (a `router.static-resources` mapping, not a
-`@Endpoint` bean) is still shadowed by the catch-all, for a different and not-yet-diagnosed reason —
-moving it to another path prefix did not help either, and since it is documentation-only (does not affect
-health, metrics or readiness) it is tracked as a known gap rather than blocking on it.
+## Addendum — live-found bug: `/swagger-ui/**` and `/swagger/**` never reachable at all
+Even after the fix above, `/swagger-ui/**` and `/swagger/**` (both `router.static-resources` mappings, not
+`@Endpoint` beans) still 404'd through the catch-all. This is a *different* bug from the one above, and
+`@Produces`/`@Consumes` placement has nothing to do with it: Micronaut's static-resource serving is a
+**fallback** that only runs when no controller route matches a request at all. `GatewayController`'s
+`/{+path}` matches literally every path, so that fallback code path is structurally unreachable — no amount
+of reordering or reprioritizing `@Produces`/`@Consumes` changes that, which is why moving the mapping to
+another path prefix (tried during the first bisection, before the root cause above was isolated) made no
+difference either.
+
+Confirmed empirically by temporarily changing the catch-all's own `@Get` mapping to a path that could not
+possibly match `/swagger-ui/**` (rebuilding, restarting the service, and confirming `/swagger-ui/index.html`
+started returning 200) before reverting that change and fixing the real cause. Fixed by injecting Micronaut's
+own `io.micronaut.web.router.resource.StaticResourceResolver` bean into `GatewayController` and checking it
+inside `get()`, before delegating to `UpstreamProxy`: if `StaticResourceResolver.resolve` finds a matching
+classpath resource for the requested path, its bytes are read and returned directly (content type derived
+from the extension via `MediaType.forExtension`, best-effort — no extension means no `Content-Type` header,
+matching how a real static-file server would behave); otherwise the request forwards to the upstream exactly
+as before. `POST`/`PUT`/`PATCH`/`DELETE` are untouched, since none of the configured mappings serve anything
+but `GET`.

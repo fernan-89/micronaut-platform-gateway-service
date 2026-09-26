@@ -49,10 +49,10 @@ both a 404. `UpstreamProxy` builds the outbound request, drops hop-by-hop header
 relays the upstream's status, body and headers unchanged — including a 4xx/5xx from the upstream itself.
 
 The gateway serves its own `/health`, `/health/liveness`, `/health/readiness`, `/metrics`, `/prometheus`,
-`/loggers` and `/info` directly (Micronaut's built-in management endpoints) — the catch-all never sees
-them. This depends on `GatewayController` never declaring `@Produces(MediaType.ALL)` (see ADR-022's
-addendum); `/swagger-ui/**` is a known exception, still shadowed by the catch-all for a separate,
-undiagnosed reason.
+`/loggers`, `/info`, `/swagger-ui/**` and `/swagger/**` directly — the catch-all never sees them. The
+management endpoints depend on `GatewayController` never declaring `@Produces(MediaType.ALL)`; the two
+static-resource mappings depend on `GatewayController` checking Micronaut's own `StaticResourceResolver`
+before forwarding a `GET` to the upstream (see ADR-022's two addenda for both root causes).
 
 ## Rate limiting
 

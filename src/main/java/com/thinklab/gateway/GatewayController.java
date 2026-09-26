@@ -2,6 +2,7 @@ package com.thinklab.gateway;
 
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpRequest;
+import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MutableHttpResponse;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.annotation.Body;
@@ -14,7 +15,13 @@ import io.micronaut.http.annotation.PathVariable;
 import io.micronaut.http.annotation.Post;
 import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.annotation.Put;
+import io.micronaut.web.router.resource.StaticResourceResolver;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 
 /**
  * The catch-all entry point: every method on every path outside the management endpoints is routed to its upstream
@@ -28,23 +35,49 @@ import reactor.core.publisher.Mono;
  * handlers). {@code @Consumes(MediaType.ALL)} alone, on the body-carrying methods, is enough to accept
  * a non-JSON request body (the original reason either annotation was added) without that side effect.
  *
- * <p><b>Known residual gap:</b> the {@code /swagger-ui/**} static-resource mapping (configured in
- * {@code application.yml}, not a {@code @Endpoint} bean) is still shadowed by this catch-all for a
- * different, not-yet-diagnosed reason — it is documentation-only and does not affect health/metrics/
- * readiness, so it is tracked as a known gap rather than blocking on it.
+ * <p><b>{@code /swagger-ui/**} and {@code /swagger/**} (found live, bisected empirically too):</b> Micronaut's
+ * static-resource serving is a fallback that only runs when no controller route matches a request at all.
+ * Since {@code /{+path}} matches literally every path, that fallback is never reached — this is not a route
+ * ordering/specificity issue like the one above, it is a structural conflict between "catch-all controller"
+ * and "static resource serving" that {@code @Produces} cannot fix. {@link #get} therefore checks the
+ * injected {@link StaticResourceResolver} itself before forwarding, so the two configured mappings
+ * (see {@code application.yml}'s {@code router.static-resources}) still get served directly.
  */
 @Controller("/")
 public class GatewayController {
 
     private final UpstreamProxy proxy;
+    private final StaticResourceResolver staticResourceResolver;
 
-    public GatewayController(UpstreamProxy proxy) {
+    public GatewayController(UpstreamProxy proxy, StaticResourceResolver staticResourceResolver) {
         this.proxy = proxy;
+        this.staticResourceResolver = staticResourceResolver;
     }
 
     @Get("/{+path}")
     public Mono<MutableHttpResponse<byte[]>> get(HttpRequest<?> request, @PathVariable String path) {
-        return proxy.forward(request, null);
+        return staticResource(path).switchIfEmpty(Mono.defer(() -> proxy.forward(request, null)));
+    }
+
+    private Mono<MutableHttpResponse<byte[]>> staticResource(String path) {
+        return Mono.fromCallable(() -> staticResourceResolver.resolve("/" + path))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(found -> found.map(this::readResource).orElseGet(Mono::empty));
+    }
+
+    private Mono<MutableHttpResponse<byte[]>> readResource(URL url) {
+        return Mono.fromCallable(() -> {
+            byte[] bytes;
+            try (InputStream in = url.openStream()) {
+                bytes = in.readAllBytes();
+            }
+            MutableHttpResponse<byte[]> response = HttpResponse.ok(bytes);
+            int dot = url.getPath().lastIndexOf('.');
+            if (dot >= 0) {
+                MediaType.forExtension(url.getPath().substring(dot + 1)).ifPresent(response::contentType);
+            }
+            return response;
+        }).subscribeOn(Schedulers.boundedElastic()).onErrorResume(IOException.class, e -> Mono.empty());
     }
 
     @Delete("/{+path}")
