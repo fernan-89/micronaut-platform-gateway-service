@@ -31,6 +31,9 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew clean check --console=plain
+      # The Dockerfile packages the installDist output, so building the image here keeps it working.
+      - name: Build the container image
+        run: ./gradlew installDist --console=plain && docker build -t ${{ github.event.repository.name }}:ci .
       - name: Upload test and coverage reports
         if: failure()
         uses: actions/upload-artifact@v7

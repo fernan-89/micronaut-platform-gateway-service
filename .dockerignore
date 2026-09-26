@@ -1,0 +1,3 @@
+# Only the installDist output is copied into the image.
+*
+!build/install/
