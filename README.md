@@ -48,6 +48,12 @@ both a 404. `UpstreamProxy` builds the outbound request, drops hop-by-hop header
 `Transfer-Encoding`, `Host`, …), adds `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto`, and
 relays the upstream's status, body and headers unchanged — including a 4xx/5xx from the upstream itself.
 
+The gateway serves its own `/health`, `/health/liveness`, `/health/readiness`, `/metrics`, `/prometheus`,
+`/loggers` and `/info` directly (Micronaut's built-in management endpoints) — the catch-all never sees
+them. This depends on `GatewayController` never declaring `@Produces(MediaType.ALL)` (see ADR-022's
+addendum); `/swagger-ui/**` is a known exception, still shadowed by the catch-all for a separate,
+undiagnosed reason.
+
 ## Rate limiting
 
 `RateLimiter` is a per-caller token bucket (`gateway.rate-limit.requests-per-second` / `burst`), keyed by the

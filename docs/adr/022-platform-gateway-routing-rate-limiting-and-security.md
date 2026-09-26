@@ -50,3 +50,30 @@ stays off by default, exactly like every other service, so the local stack keeps
   availability now matters as much as the identity service's. Response streaming is not implemented yet (the
   body is buffered in memory up to `gateway.max-body-bytes`), so it is unsuitable for large uploads or
   downloads without raising that limit.
+
+## Addendum — live-found bug: `@Produces(MediaType.ALL)` outranks every literal route
+The catch-all `GatewayController` (`@Controller("/") @Get("/{+path}")`, etc.) originally declared
+`@Consumes(MediaType.ALL) @Produces(MediaType.ALL)` at the class level, so the proxy would accept and
+relay any content type without interpreting it. A live run of `start-local-stack.ps1` found the
+gateway's own `/health/readiness` — and, on further probing, `/health`, `/metrics`, `/prometheus`,
+`/loggers` and `/info` — all 404ing through the gateway's own `GlobalExceptionHandler`
+(`ERR-GTW-00404`) instead of being served by Micronaut's built-in management endpoints, even though
+`endpoints.health.kubernetes.enabled: true` (the same config every other service uses successfully) was
+set. The unit/integration test that should have caught this
+(`GatewayIntegrationTest > management endpoints are served by the gateway itself`) already existed and
+already asserted `/health/liveness`, which shows the regression was introduced after that test was last
+green — a reminder that `gradlew check` passing once is not the same as it having been re-run after every
+later change.
+
+Bisected empirically (moving `endpoints.all.path` to a different prefix did **not** help; only removing
+the annotation did): declaring `@Produces(MediaType.ALL)` anywhere on this controller — class or method
+level — made Micronaut's route resolution rank the catch-all above every literal route in the
+application, regardless of how many literal segments the competing route had. `@Consumes(MediaType.ALL)`
+alone, kept only on the body-carrying methods (`POST`/`PUT`/`PATCH`), is sufficient to accept a non-JSON
+request body (the original motivation) without that side effect. Fixed by moving `@Consumes(MediaType.ALL)`
+to method level and dropping `@Produces(MediaType.ALL)` entirely.
+
+**Known residual gap, accepted for now:** `/swagger-ui/**` (a `router.static-resources` mapping, not a
+`@Endpoint` bean) is still shadowed by the catch-all, for a different and not-yet-diagnosed reason —
+moving it to another path prefix did not help either, and since it is documentation-only (does not affect
+health, metrics or readiness) it is tracked as a known gap rather than blocking on it.
