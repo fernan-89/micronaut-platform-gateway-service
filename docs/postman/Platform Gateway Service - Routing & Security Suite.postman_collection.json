@@ -1,0 +1,453 @@
+{
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Automatically generate standard W3C traceparent (ADR-010) and X-Trace-Id",
+          "function generateHex(len) {",
+          "    let result = '';",
+          "    const chars = '0123456789abcdef';",
+          "    for (let i = 0; i < len; i++) {",
+          "        result += chars.charAt(Math.floor(Math.random() * chars.length));",
+          "    }",
+          "    return result;",
+          "}",
+          "const traceId = generateHex(32);",
+          "const spanId = generateHex(16);",
+          "const traceparent = `00-${traceId}-${spanId}-01`;",
+          "pm.request.headers.upsert({ key: 'traceparent', value: traceparent });",
+          "pm.request.headers.upsert({ key: 'X-Trace-Id', value: traceId });",
+          "pm.environment.set('currentTraceId', traceId);"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "info": {
+    "_exporter_id": "39879181",
+    "_postman_id": "a1c3e5f7-4b6d-4e8f-9a1b-6c8d0e2f4a5b",
+    "description": "E2E Postman Suite for the dedicated platform gateway (ADR-022). The gateway has no domain of its own - this suite proves the reverse-proxy contract instead: an unconfigured domain and a denied internal-only path are both a 404 ERR-GTW-00404 (indistinguishable from the outside, ADR-022), a real request/response round trip through a configured upstream (method, body, headers and status all forwarded unchanged), and that the upstream's own errors pass through untouched rather than being reinterpreted by the gateway. Security-on scenarios (bearer auth, rate limiting) are covered live by thinklab-platform/scripts/e2e/secured-smoke.ps1 instead, since they need THINKLAB_SECURITY_ENABLED and a bootstrap secret set before the stack starts - outside what a fixed Postman environment can express.",
+    "name": "Platform Gateway Service - Routing & Security Suite",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Health status is UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Health Check (Aggregated)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "raw": "{{base_url}}/health"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Liveness status is UP or UNKNOWN (no probe contributors registered)', () => pm.expect(['UP', 'UNKNOWN']).to.include(pm.response.json().status));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Liveness Probe",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "liveness"
+              ],
+              "raw": "{{base_url}}/health/liveness"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Readiness status is UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Readiness Probe",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "readiness"
+              ],
+              "raw": "{{base_url}}/health/readiness"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Contains JVM metrics', () => pm.expect(pm.response.text()).to.include('jvm_memory'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Prometheus Metrics",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "prometheus"
+              ],
+              "raw": "{{base_url}}/prometheus"
+            }
+          }
+        }
+      ],
+      "name": "00. Infrastructure & Telemetry"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-GTW-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-GTW-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "01. Unconfigured Domain (404, indistinguishable from a denied path)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "not-a-real-domain",
+                "v1",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/not-a-real-domain/v1/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-GTW-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-GTW-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "02. Denied Path: Service Token Endpoint Is Never Reachable Through The Gateway (404)",
+          "request": {
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "party-authentication",
+                "v1",
+                "token",
+                "service"
+              ],
+              "raw": "{{base_url}}/party-authentication/v1/token/service"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-GTW-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-GTW-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "03. Denied Path: The Raw Revocation Feed Is Also Denied (404)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "party-authentication",
+                "v1",
+                "session",
+                "revoked"
+              ],
+              "raw": "{{base_url}}/party-authentication/v1/session/revoked"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('A public key set with at least one key', () => pm.expect(pm.response.json().keys).to.be.an('array').that.is.not.empty);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "04. The JWKS Document Routes Through Like Any Other Path (200)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "party-authentication",
+                "v1",
+                ".well-known",
+                "jwks.json"
+              ],
+              "raw": "{{base_url}}/party-authentication/v1/.well-known/jwks.json"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// taxIdentifier must be exactly 14 digits - $randomInt alone cannot guarantee a fixed width.",
+                  "let taxId = '';",
+                  "for (let i = 0; i < 14; i++) taxId += Math.floor(Math.random() * 10);",
+                  "pm.variables.set('taxId', taxId);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('A real Organisation, created via the upstream, not the gateway', () => pm.expect(json.id).to.not.be.undefined);",
+                  "pm.environment.set('organisationId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "05. Create Organisation Through The Gateway (201, proves method/body/header forwarding)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"corporateName\": \"Gateway Suite Corp\",\n  \"tradeName\": \"Gateway Suite\",\n  \"taxIdentifier\": \"{{taxId}}\",\n  \"billing\": {\n    \"billingEmail\": \"billing@gateway-suite.example\",\n    \"currency\": \"USD\",\n    \"taxRegime\": \"SIMPLES\"\n  }\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "party-reference-data-directory",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/party-reference-data-directory/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Same corporateName sent on creation', () => pm.expect(pm.response.json().corporateName).to.eql('Gateway Suite Corp'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "06. Retrieve The Same Organisation Through The Gateway (200, proves the round trip)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "party-reference-data-directory",
+                "v1",
+                "{{organisationId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/party-reference-data-directory/v1/{{organisationId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-ORG-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-ORG-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "07. A 4xx From The Upstream Itself Is Relayed Unchanged (404, not a gateway error_code)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "party-reference-data-directory",
+                "v1",
+                "00000000-0000-0000-0000-000000000000",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/party-reference-data-directory/v1/00000000-0000-0000-0000-000000000000/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "08. An Unknown Path On A Configured Domain Still 404s (upstream decides, not the gateway)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "party-reference-data-directory",
+                "v1",
+                "this-route-does-not-exist"
+              ],
+              "raw": "{{base_url}}/party-reference-data-directory/v1/this-route-does-not-exist"
+            }
+          }
+        }
+      ],
+      "name": "01. Routing, Denied Paths & Upstream Round Trip"
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8088"
+    }
+  ]
+}
