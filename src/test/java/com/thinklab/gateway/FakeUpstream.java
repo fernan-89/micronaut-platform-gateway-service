@@ -6,15 +6,21 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** A tiny upstream for the gateway tests: echoes what it received, and can fail or stall on demand. */
 final class FakeUpstream implements AutoCloseable {
 
     private final HttpServer server;
+    // Without an executor HttpServer handles one exchange at a time, so a stalled /slow request would
+    // keep blocking the next test's request long after the gateway has given up on it with a 504.
+    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     FakeUpstream() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", this::handle);
+        server.setExecutor(executor);
         server.start();
     }
 
@@ -57,5 +63,6 @@ final class FakeUpstream implements AutoCloseable {
     @Override
     public void close() {
         server.stop(0);
+        executor.shutdownNow();
     }
 }
