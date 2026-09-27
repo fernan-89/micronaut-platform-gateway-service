@@ -116,6 +116,7 @@ gateway:
     party-reference-data-directory: ${GATEWAY_PARTY_REFERENCE_URL:`http://localhost:8081`}
     it-asset-registry: ${GATEWAY_IT_ASSET_URL:`http://localhost:8083`}
     it-operation-window: ${GATEWAY_IT_OPERATION_WINDOW_URL:`http://localhost:8084`}
+    it-hardware-maintenance: ${GATEWAY_IT_HARDWARE_MAINTENANCE_URL:`http://localhost:8085`}
     site-reference-data-directory: ${GATEWAY_SITE_REFERENCE_URL:`http://localhost:8087`}
     notification-dispatch: ${GATEWAY_NOTIFICATION_DISPATCH_URL:`http://localhost:8089`}
   request-timeout: 15s
