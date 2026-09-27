@@ -119,6 +119,8 @@ gateway:
     it-hardware-maintenance: ${GATEWAY_IT_HARDWARE_MAINTENANCE_URL:`http://localhost:8085`}
     site-reference-data-directory: ${GATEWAY_SITE_REFERENCE_URL:`http://localhost:8087`}
     notification-dispatch: ${GATEWAY_NOTIFICATION_DISPATCH_URL:`http://localhost:8089`}
+    workflow-approval: ${GATEWAY_WORKFLOW_APPROVAL_URL:`http://localhost:8090`}
+    it-change-management: ${GATEWAY_IT_CHANGE_MANAGEMENT_URL:`http://localhost:8086`}
   request-timeout: 15s
   # Internal-only endpoints are never reachable through the gateway (they answer 404).
   denied-paths:
