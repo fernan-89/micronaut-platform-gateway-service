@@ -5,7 +5,7 @@
 #  * @version     v3.5.0
 #  * @description Packages the distribution built by `./gradlew installDist` into a Google Distroless
 #  *              runtime (non-root, no shell). The build runs outside Docker - on the developer machine
-#  *              or in CI - where the GitHub Packages credentials for thinklab-service-kit already
+#  *              or in CI - where the GitHub Packages credentials for micronaut-thinklab-service-kit already
 #  *              exist, so no secret ever enters an image layer.
 #  *
 #  *              ./gradlew installDist && docker build -t <image> .

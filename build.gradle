@@ -41,8 +41,8 @@ repositories {
     mavenLocal()
     mavenCentral()
     maven {
-        // CI resolves the shared kit from GitHub Packages (ADR-001 of thinklab-service-kit).
-        url = uri('https://maven.pkg.github.com/fernan-89/thinklab-service-kit')
+        // CI resolves the shared kit from GitHub Packages (ADR-001 of micronaut-thinklab-service-kit).
+        url = uri('https://maven.pkg.github.com/fernan-89/micronaut-thinklab-service-kit')
         credentials {
             username = System.getenv('GITHUB_ACTOR')
             password = System.getenv('GITHUB_TOKEN')
@@ -51,7 +51,7 @@ repositories {
 }
 
 dependencies {
-    implementation         'com.thinklab:thinklab-service-kit:0.5.0'
+    implementation         'com.thinklab:micronaut-thinklab-service-kit:0.6.0'
 
     // ------------------------------------------------------------------------------------------
     // /**
