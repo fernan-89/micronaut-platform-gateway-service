@@ -13,10 +13,6 @@ import java.util.concurrent.Executors;
 final class FakeUpstream implements AutoCloseable {
 
     private final HttpServer server;
-    // Without an executor HttpServer handles one exchange at a time, so a stalled /slow request would
-    // keep blocking the next test's request long after the gateway has given up on it with a 504.
-    private final ExecutorService executor = Executors.newCachedThreadPool();
-
     // One thread per request: without an executor HttpServer serves requests one at a time on its
     // dispatcher thread, so a stalled /slow call would delay every request that follows it.
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
