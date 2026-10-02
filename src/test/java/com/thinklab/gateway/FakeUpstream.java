@@ -17,6 +17,10 @@ final class FakeUpstream implements AutoCloseable {
     // keep blocking the next test's request long after the gateway has given up on it with a 504.
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
+    // One thread per request: without an executor HttpServer serves requests one at a time on its
+    // dispatcher thread, so a stalled /slow call would delay every request that follows it.
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+
     FakeUpstream() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", this::handle);
