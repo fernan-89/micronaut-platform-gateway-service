@@ -121,6 +121,9 @@ gateway:
     notification-dispatch: ${GATEWAY_NOTIFICATION_DISPATCH_URL:`http://localhost:8089`}
     workflow-approval: ${GATEWAY_WORKFLOW_APPROVAL_URL:`http://localhost:8090`}
     it-change-management: ${GATEWAY_IT_CHANGE_MANAGEMENT_URL:`http://localhost:8086`}
+    it-discovery: ${GATEWAY_IT_DISCOVERY_URL:`http://localhost:8091`}
+    it-topology-graph: ${GATEWAY_IT_TOPOLOGY_GRAPH_URL:`http://localhost:8092`}
+    ci-type-catalog: ${GATEWAY_CI_TYPE_CATALOG_URL:`http://localhost:8093`}
   request-timeout: 15s
   # Internal-only endpoints are never reachable through the gateway (they answer 404).
   denied-paths:
