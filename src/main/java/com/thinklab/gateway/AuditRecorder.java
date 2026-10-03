@@ -43,6 +43,7 @@ public class AuditRecorder {
     private final MeterRegistry meters;
     private final JsonMapper json;
     private final Sinks.Many<Described> queue = Sinks.many().unicast().onBackpressureBuffer(Queues.<Described>get(QUEUE_CAPACITY).get());
+    private final Object emitLock = new Object();
 
     @Inject
     public AuditRecorder(@Client("gateway-audit") HttpClient client, AuditProperties properties, MeterRegistry meters, JsonMapper json) {
@@ -62,8 +63,17 @@ public class AuditRecorder {
         AuditEntryDescriber.describe(request, status, properties.getPseudonymKey()).ifPresent(this::enqueue);
     }
 
+    /**
+     * Requests complete on several threads at once, and a sink refuses a concurrent emission (FAIL_NON_SERIALIZED) instead of
+     * waiting - which would silently drop the entry. Serialising the emission closes that hole; found live by a smoke that fires
+     * eight concurrent mutations. Only a genuinely full queue still drops.
+     */
     private void enqueue(Described entry) {
-        if (queue.tryEmitNext(entry).isFailure()) {
+        boolean failed;
+        synchronized (emitLock) {
+            failed = queue.tryEmitNext(entry).isFailure();
+        }
+        if (failed) {
             dropped(entry, "the audit queue is full");
         }
     }

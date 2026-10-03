@@ -34,3 +34,6 @@ subtraction.
 - Negative: the gateway cannot know which path segments or query values are personal; it handles the cases it can recognise (UUIDs
   are masked, queries are dropped). A service that put personal data in a URL path segment would still have it recorded - the
   platform convention is opaque identifiers in paths, and the ledger guard catches an email or card number if one slips through.
+
+## Addendum (2026-10-03): emission is serialised
+Requests complete on several threads at once, and a Reactor sink refuses a concurrent emission (`FAIL_NON_SERIALIZED`) instead of waiting, which made `AuditRecorder` drop entries silently under a burst of simultaneous mutations. Found live by the inventory smoke (eight concurrent issues: one entry missing on the ledger). Emission into the queue is now serialised by a lock; only a genuinely full queue still drops (and is counted in `gateway.audit.dropped`). A regression test fires 16 threads x 50 mutations and requires all 800 recorded.

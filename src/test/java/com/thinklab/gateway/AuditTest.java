@@ -177,6 +177,34 @@ class AuditTest {
     }
 
     @Test
+    @DisplayName("requests completing on many threads at once are all recorded: a sink refuses a concurrent emission, so emission is serialised")
+    void concurrentRequestsAreAllRecorded() throws Exception {
+        when(client.exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class))).thenReturn(Mono.just(HttpResponse.created("{}")));
+        int threads = 16;
+        int perThread = 50;
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        var futures = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+        for (int t = 0; t < threads; t++) {
+            futures.add(pool.submit(() -> {
+                start.await();
+                for (int i = 0; i < perThread; i++) {
+                    recorder.record(request(HttpMethod.PUT, "/it-asset-registry/v1/" + ASSET + "/control/ready", TENANT, "alice"), 204);
+                }
+                return null;
+            }));
+        }
+        start.countDown();
+        for (var future : futures) {
+            future.get(30, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        pool.shutdown();
+
+        assertEquals((double) threads * perThread, meters.counter("gateway.audit.recorded").count());
+        assertEquals(0.0, meters.counter("gateway.audit.dropped").count());
+    }
+
+    @Test
     @DisplayName("an entry that cannot be queued (queue full or closed) is dropped and counted, never thrown")
     void unqueueableEntryIsDropped() {
         recorder.close();
