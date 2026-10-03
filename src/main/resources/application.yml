@@ -131,6 +131,7 @@ gateway:
     it-topology-graph: ${GATEWAY_IT_TOPOLOGY_GRAPH_URL:`http://localhost:8092`}
     ci-type-catalog: ${GATEWAY_CI_TYPE_CATALOG_URL:`http://localhost:8093`}
     compliance-audit-ledger: ${GATEWAY_COMPLIANCE_AUDIT_LEDGER_URL:`http://localhost:8094`}
+    subscription-billing: ${GATEWAY_SUBSCRIPTION_BILLING_URL:`http://localhost:8095`}
   # ADR-032 of the ledger service: record every mutating request that carries a tenant on the compliance ledger.
   # Off by default; asynchronous and fail-open (a ledger outage never affects the request).
   audit:
