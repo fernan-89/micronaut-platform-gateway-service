@@ -42,6 +42,7 @@ class GatewayIntegrationTest implements TestPropertyProvider {
                 "gateway.denied-paths", "/it-asset-registry/v1/internal",
                 "gateway.max-body-bytes", "64",
                 "micronaut.http.services.gateway-upstream.read-timeout", "1s",
+                "micronaut.http.client.follow-redirects", "false",
                 "gateway.rate-limit.burst", "1000");
     }
 
@@ -103,6 +104,15 @@ class GatewayIntegrationTest implements TestPropertyProvider {
         assertEquals(HttpStatus.NOT_FOUND, notFound.getStatus());
         assertEquals("/it-asset-registry/v1/missing", notFound.getResponse().getBody(Map.class).map(m -> m.get("path")).orElse(null));
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, boom.getStatus());
+    }
+
+    @Test
+    @DisplayName("an upstream redirect is relayed to the caller, never followed by the gateway")
+    void upstreamRedirectIsRelayed() {
+        HttpResponse<?> response = client.toBlocking().exchange(HttpRequest.GET("/it-asset-registry/v1/redirect"));
+
+        assertEquals(HttpStatus.FOUND, response.getStatus());
+        assertEquals("http://127.0.0.1:1/never-followed", response.getHeaders().get("Location"));
     }
 
     @Test

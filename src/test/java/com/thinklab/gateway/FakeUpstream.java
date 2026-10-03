@@ -38,6 +38,12 @@ final class FakeUpstream implements AutoCloseable {
             }
         }
         String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        if (path.endsWith("/redirect")) {
+            exchange.getResponseHeaders().add("Location", "http://127.0.0.1:1/never-followed");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+            return;
+        }
         int status = path.endsWith("/missing") ? 404 : path.endsWith("/boom") ? 500 : 200;
         String answer = "{\"method\":\"" + exchange.getRequestMethod() + "\",\"path\":\"" + path + "\",\"query\":\""
                 + (exchange.getRequestURI().getRawQuery() == null ? "" : exchange.getRequestURI().getRawQuery())
