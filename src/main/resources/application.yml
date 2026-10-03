@@ -37,6 +37,12 @@ micronaut:
         # share this timeout.
         read-timeout: ${GATEWAY_UPSTREAM_READ_TIMEOUT:15s}
         connect-timeout: ${GATEWAY_UPSTREAM_CONNECT_TIMEOUT:3s}
+      gateway-audit:
+        # The compliance ledger the gateway appends to (AuditRecorder). Short timeouts: the append is fire-and-forget
+        # and fail-open, so a slow ledger should be abandoned quickly, not held open.
+        url: ${GATEWAY_AUDIT_LEDGER_URL:`http://localhost:8094`}
+        read-timeout: 2s
+        connect-timeout: 1s
   server:
     port: ${MICRONAUT_SERVER_PORT:8088}
     cors:
@@ -124,6 +130,11 @@ gateway:
     it-discovery: ${GATEWAY_IT_DISCOVERY_URL:`http://localhost:8091`}
     it-topology-graph: ${GATEWAY_IT_TOPOLOGY_GRAPH_URL:`http://localhost:8092`}
     ci-type-catalog: ${GATEWAY_CI_TYPE_CATALOG_URL:`http://localhost:8093`}
+    compliance-audit-ledger: ${GATEWAY_COMPLIANCE_AUDIT_LEDGER_URL:`http://localhost:8094`}
+  # ADR-032 of the ledger service: record every mutating request that carries a tenant on the compliance ledger.
+  # Off by default; asynchronous and fail-open (a ledger outage never affects the request).
+  audit:
+    enabled: ${GATEWAY_AUDIT_ENABLED:false}
   request-timeout: 15s
   # Internal-only endpoints are never reachable through the gateway (they answer 404).
   denied-paths:

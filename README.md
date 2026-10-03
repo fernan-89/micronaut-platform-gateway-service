@@ -62,6 +62,12 @@ attempts) never exhausts a legitimate user's budget. Denied requests get `429` w
 and stale buckets are pruned so the map cannot grow without bound. Health, Prometheus and metrics endpoints
 are exempt.
 
+## Audit recording (ADR-023)
+
+With `GATEWAY_AUDIT_ENABLED=true` every mutating request that carries a tenant is appended to the compliance ledger after it
+completes - asynchronously and fail-open, so a ledger outage never touches the request (it is counted in `gateway.audit.dropped`).
+Off by default. See ADR-023.
+
 ## Error catalog
 
 | Code | HTTP | Meaning |
