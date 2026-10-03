@@ -147,6 +147,33 @@ class AuditTest {
     }
 
     @Test
+    @DisplayName("appends run one at a time, in the order the requests completed: the second waits for the first")
+    void appendsAreOrdered() {
+        reactor.core.publisher.Sinks.One<HttpResponse<String>> firstDone = reactor.core.publisher.Sinks.one();
+        when(client.exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class)))
+                .thenReturn(firstDone.asMono()).thenReturn(Mono.just(HttpResponse.created("{}")));
+
+        recorder.record(request(HttpMethod.POST, "/it-asset-registry/v1/initiate", TENANT, "alice"), 201);
+        recorder.record(request(HttpMethod.PUT, "/it-asset-registry/v1/" + ASSET + "/control/ready", TENANT, "alice"), 204);
+
+        verify(client, org.mockito.Mockito.times(1)).exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class));
+        firstDone.tryEmitValue(HttpResponse.created("{}"));
+        verify(client, org.mockito.Mockito.times(2)).exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class));
+        assertEquals(2.0, meters.counter("gateway.audit.recorded").count());
+    }
+
+    @Test
+    @DisplayName("an entry that cannot be queued (queue full or closed) is dropped and counted, never thrown")
+    void unqueueableEntryIsDropped() {
+        recorder.close();
+
+        recorder.record(request(HttpMethod.POST, "/it-asset-registry/v1/initiate", TENANT, "alice"), 201);
+
+        assertEquals(1.0, meters.counter("gateway.audit.dropped").count());
+        verify(client, never()).exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class));
+    }
+
+    @Test
     @DisplayName("a request that is not audit-worthy never reaches the ledger")
     void nothingToRecord() {
         recorder.record(request(HttpMethod.GET, "/it-asset-registry/v1/retrieve", TENANT, "alice"), 200);
