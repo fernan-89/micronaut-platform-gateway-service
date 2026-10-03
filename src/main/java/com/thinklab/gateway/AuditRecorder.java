@@ -4,6 +4,7 @@ import com.thinklab.gateway.AuditEntryDescriber.Described;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
+import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
@@ -102,7 +103,15 @@ public class AuditRecorder {
         queue.tryEmitComplete();
     }
 
-    private Mono<Void> append(Described entry) {
+    /**
+     * Appends an entry and tells the caller whether it worked: unlike {@link #record}, a failure is NOT swallowed. For the few actions
+     * that must not happen unrecorded (an investigator looking a person up), where "audit is best effort" would defeat the purpose.
+     */
+    Mono<Void> appendRequired(Described entry) {
+        return post(entry).doOnSuccess(response -> meters.counter("gateway.audit.recorded").increment()).then();
+    }
+
+    private Mono<HttpResponse<String>> post(Described entry) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("source", AuditEntryDescriber.SOURCE);
         body.put("actor", entry.actor());
@@ -113,7 +122,11 @@ public class AuditRecorder {
         MutableHttpRequest<Map<String, Object>> post = HttpRequest.<Map<String, Object>>POST(LEDGER_INITIATE, body)
                 .header("X-Tenant-Id", entry.tenantId())
                 .header("X-Executor", AuditEntryDescriber.SOURCE);
-        return Mono.from(client.exchange(post, Argument.of(String.class), Argument.of(String.class)))
+        return Mono.from(client.exchange(post, Argument.of(String.class), Argument.of(String.class)));
+    }
+
+    private Mono<Void> append(Described entry) {
+        return post(entry)
                 .doOnSuccess(response -> meters.counter("gateway.audit.recorded").increment())
                 .onErrorResume(failure -> {
                     dropped(entry, failure.getMessage());

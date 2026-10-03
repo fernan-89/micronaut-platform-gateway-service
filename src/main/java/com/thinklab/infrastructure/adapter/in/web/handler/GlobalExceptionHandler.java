@@ -93,6 +93,7 @@ public class GlobalExceptionHandler implements ExceptionHandler<Throwable, HttpR
             case "ERR-GTW-00401" -> HttpStatus.UNAUTHORIZED;
             case "ERR-GTW-00403" -> HttpStatus.FORBIDDEN;
             case "ERR-GTW-00413" -> HttpStatus.REQUEST_ENTITY_TOO_LARGE;
+            case "ERR-GTW-00429" -> HttpStatus.TOO_MANY_REQUESTS;
             case "ERR-GTW-00502" -> HttpStatus.BAD_GATEWAY;
             case "ERR-GTW-00504" -> HttpStatus.GATEWAY_TIMEOUT;
             default -> HttpStatus.CONFLICT;

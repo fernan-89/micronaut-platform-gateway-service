@@ -19,6 +19,8 @@ final class AuditEntryDescriber {
 
     static final String SOURCE = "platform-gateway";
     static final String LEDGER_DOMAIN = "compliance-audit-ledger";
+    /** The gateway's own endpoints (session bridge, investigation): not proxied, and the investigation records itself with more detail. */
+    static final String GATEWAY_DOMAIN = "gateway";
     static final String SIGN_IN_PATH = "/party-authentication/v1/session/initiate";
     private static final Set<HttpMethod> MUTATIONS = Set.of(HttpMethod.POST, HttpMethod.PUT, HttpMethod.PATCH, HttpMethod.DELETE);
     private static final Pattern UUID = Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
@@ -43,7 +45,7 @@ final class AuditEntryDescriber {
         String trimmed = path.replaceFirst("^/", "");
         int slash = trimmed.indexOf('/');
         String domain = slash < 0 ? trimmed : trimmed.substring(0, slash);
-        if (domain.isBlank() || domain.equals(LEDGER_DOMAIN)) {
+        if (domain.isBlank() || domain.equals(LEDGER_DOMAIN) || domain.equals(GATEWAY_DOMAIN)) {
             return Optional.empty();
         }
         var matcher = UUID.matcher(path);

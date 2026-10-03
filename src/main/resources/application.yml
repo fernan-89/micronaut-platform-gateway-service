@@ -149,6 +149,11 @@ gateway:
     # Secret for pseudonymising the sign-in email before it reaches the ledger (HMAC-SHA256, ADR-024). Empty = recorded as
     # login:unkeyed (the attempt and its outcome, but no per-person correlation). Never a plain hash of the email.
     pseudonym-key: ${GATEWAY_AUDIT_PSEUDONYM_KEY:}
+  # ADR-027: the pseudonym lookup an administrator runs to find what a KNOWN person did. Off by default (the endpoint then answers 404);
+  # ADMIN only when security is on; recorded on the ledger before anything is disclosed.
+  investigation:
+    enabled: ${GATEWAY_INVESTIGATION_ENABLED:false}
+    max-per-hour: ${GATEWAY_INVESTIGATION_MAX_PER_HOUR:20}
   # ADR-026: turn away a request for a feature the tenant plan does not include (403). Off by default; fail-open when billing is unreachable.
   entitlements:
     enabled: ${GATEWAY_ENTITLEMENTS_ENABLED:false}

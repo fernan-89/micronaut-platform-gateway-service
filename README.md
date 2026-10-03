@@ -70,6 +70,13 @@ Off by default. See ADR-023.
 
 What is recorded is chosen by an allow-list (ADR-024): the tenant, the actor, the method and the path with identifiers masked, the Service Domain, the first resource id and the status - never the query string, a body, a token or any other header. A sign-in attempt is recorded too, but of its body only the organisation id is used: the email becomes a keyed pseudonym (`GATEWAY_AUDIT_PSEUDONYM_KEY`; without a key it is `login:unkeyed`) and **the password is never read into an entry, logged or forwarded**.
 
+## Pseudonym lookup for investigations (ADR-027)
+
+With `GATEWAY_INVESTIGATION_ENABLED=true`, `POST /gateway/v1/investigation/pseudonym` (body `email` + `reason`) tells an ADMIN the keyed
+pseudonym a KNOWN person's sign-ins are recorded under, and how to read the ledger by it. Forward only (no pseudonym-to-person table);
+the lookup is recorded on the ledger *before* anything is disclosed (fail-closed), the reason must carry no personal data, and each
+investigator is limited to `GATEWAY_INVESTIGATION_MAX_PER_HOUR` (20). Off by default (404). Steps in `docs/runbook-investigation.md`.
+
 ## Plan-based feature gating (ADR-026)
 
 With `GATEWAY_ENTITLEMENTS_ENABLED=true` a request that carries a tenant for a gated Service Domain (`gateway.entitlements.features`,

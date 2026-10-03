@@ -1,5 +1,6 @@
 package com.thinklab.gateway;
 
+import com.thinklab.gateway.AuditEntryDescriber.Described;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpMethod;
@@ -158,6 +159,27 @@ class AuditTest {
 
         assertEquals(1.0, meters.counter("gateway.audit.dropped").count());
         assertEquals(0.0, meters.counter("gateway.audit.recorded").count());
+    }
+
+
+    @Test
+    @DisplayName("appendRequired reports the outcome to the caller: success completes and is counted, a failure is propagated (not swallowed)")
+    void appendRequiredPropagates() {
+        var entry = new Described(TENANT, "alice", "POST /gateway/v1/investigation/pseudonym", "investigation", null, "target=login:abc; reason=ticket 12345");
+        when(client.exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class))).thenReturn(Mono.just(HttpResponse.created("{}")));
+
+        StepVerifier.create(recorder.appendRequired(entry)).verifyComplete();
+        assertEquals(1.0, meters.counter("gateway.audit.recorded").count());
+
+        when(client.exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class))).thenReturn(Mono.error(new IllegalStateException("ledger down")));
+        StepVerifier.create(recorder.appendRequired(entry)).expectError(IllegalStateException.class).verify();
+        assertEquals(0.0, meters.counter("gateway.audit.dropped").count());
+    }
+
+    @Test
+    @DisplayName("the gateway's own endpoints (session bridge, investigation) are not described as proxied requests")
+    void gatewayOwnEndpointsAreNotDescribed() {
+        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.POST, "/gateway/v1/investigation/pseudonym", TENANT, "a"), 200, "").isEmpty());
     }
 
     @Test
