@@ -70,6 +70,14 @@ Off by default. See ADR-023.
 
 What is recorded is chosen by an allow-list (ADR-024): the tenant, the actor, the method and the path with identifiers masked, the Service Domain, the first resource id and the status - never the query string, a body, a token or any other header. A sign-in attempt is recorded too, but of its body only the organisation id is used: the email becomes a keyed pseudonym (`GATEWAY_AUDIT_PSEUDONYM_KEY`; without a key it is `login:unkeyed`) and **the password is never read into an entry, logged or forwarded**.
 
+## Plan-based feature gating (ADR-026)
+
+With `GATEWAY_ENTITLEMENTS_ENABLED=true` a request that carries a tenant for a gated Service Domain (`gateway.entitlements.features`,
+by default `it-discovery`, `compliance-audit-ledger` and `identity-federation`) is turned away with `403 ERR-GTW-00403` when the
+organisation's plan does not include the feature. Billing is asked at `GATEWAY_BILLING_URL`; answers are cached for
+`GATEWAY_ENTITLEMENTS_CACHE_TTL` (30s); it is fail-open when billing cannot answer, and sign-in routes (no tenant) are never judged.
+Off by default. See ADR-026.
+
 ## Session cookie (ADR-025)
 
 The refresh token never reaches page scripts: the gateway keeps it in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie (`gateway.session-cookie.*`).

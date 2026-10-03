@@ -40,6 +40,11 @@ micronaut:
         # A proxy relays a redirect, it never follows one: following it would send the gateway to wherever the upstream points (an
         # identity provider, in the federation sign-in) and hand the browser that site's answer instead of the redirect.
         follow-redirects: false
+      gateway-billing:
+        # subscription-billing-service, asked whether a plan includes a feature (EntitlementGate). Fail-open, so short timeouts.
+        url: ${GATEWAY_BILLING_URL:`http://localhost:8095`}
+        read-timeout: 2s
+        connect-timeout: 1s
       gateway-audit:
         # The compliance ledger the gateway appends to (AuditRecorder). Short timeouts: the append is fire-and-forget
         # and fail-open, so a slow ledger should be abandoned quickly, not held open.
@@ -144,6 +149,14 @@ gateway:
     # Secret for pseudonymising the sign-in email before it reaches the ledger (HMAC-SHA256, ADR-024). Empty = recorded as
     # login:unkeyed (the attempt and its outcome, but no per-person correlation). Never a plain hash of the email.
     pseudonym-key: ${GATEWAY_AUDIT_PSEUDONYM_KEY:}
+  # ADR-026: turn away a request for a feature the tenant plan does not include (403). Off by default; fail-open when billing is unreachable.
+  entitlements:
+    enabled: ${GATEWAY_ENTITLEMENTS_ENABLED:false}
+    cache-ttl: ${GATEWAY_ENTITLEMENTS_CACHE_TTL:30s}
+    features:
+      it-discovery: discovery
+      compliance-audit-ledger: audit
+      identity-federation: sso
   request-timeout: 15s
   # Internal-only endpoints are never reachable through the gateway (they answer 404).
   denied-paths:
