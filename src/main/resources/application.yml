@@ -135,6 +135,9 @@ gateway:
   # Off by default; asynchronous and fail-open (a ledger outage never affects the request).
   audit:
     enabled: ${GATEWAY_AUDIT_ENABLED:false}
+    # Secret for pseudonymising the sign-in email before it reaches the ledger (HMAC-SHA256, ADR-024). Empty = recorded as
+    # login:unkeyed (the attempt and its outcome, but no per-person correlation). Never a plain hash of the email.
+    pseudonym-key: ${GATEWAY_AUDIT_PSEUDONYM_KEY:}
   request-timeout: 15s
   # Internal-only endpoints are never reachable through the gateway (they answer 404).
   denied-paths:

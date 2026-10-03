@@ -40,13 +40,29 @@ class GatewayControllerTest {
 
     private final UpstreamProxy proxy = mock(UpstreamProxy.class);
     private final StaticResourceResolver staticResourceResolver = mock(StaticResourceResolver.class);
+    private final AuditRecorder auditRecorder = mock(AuditRecorder.class);
     private final HttpRequest<?> request = mock(HttpRequest.class);
     private GatewayController controller;
 
     @BeforeEach
     void setUp() {
         lenient().when(staticResourceResolver.resolve(any())).thenReturn(Optional.empty());
-        controller = new GatewayController(proxy, staticResourceResolver);
+        controller = new GatewayController(proxy, staticResourceResolver, auditRecorder);
+    }
+
+    @Test
+    @DisplayName("POST to the sign-in path is audited with the status the caller received; any other POST is not")
+    void signInIsAudited() {
+        byte[] credentials = "{\"organisationId\":\"o\"}".getBytes();
+        MutableHttpResponse<byte[]> response = mock(MutableHttpResponse.class);
+        when(response.getStatus()).thenReturn(io.micronaut.http.HttpStatus.UNAUTHORIZED);
+        when(proxy.forward(request, credentials)).thenReturn(Mono.just(response));
+
+        StepVerifier.create(controller.post(request, "party-authentication/v1/session/initiate", credentials)).expectNext(response).verifyComplete();
+        StepVerifier.create(controller.post(request, "it-asset-registry/v1/initiate", credentials)).expectNext(response).verifyComplete();
+
+        verify(auditRecorder).recordSignIn(credentials, 401);
+        verify(auditRecorder, org.mockito.Mockito.times(1)).recordSignIn(any(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test

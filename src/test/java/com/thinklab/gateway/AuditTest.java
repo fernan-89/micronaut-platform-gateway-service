@@ -21,6 +21,8 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -43,7 +45,7 @@ class AuditTest {
 
     @BeforeEach
     void setUp() {
-        recorder = new AuditRecorder(client, properties, meters);
+        recorder = new AuditRecorder(client, properties, meters, io.micronaut.json.JsonMapper.createDefault());
     }
 
     private static HttpRequest<?> request(HttpMethod method, String path, String tenant, String executor) {
@@ -62,7 +64,7 @@ class AuditTest {
     @Test
     @DisplayName("a mutation with a tenant is described: executor, method + masked path, domain, first id, status")
     void describesMutation() {
-        var described = AuditEntryDescriber.describe(request(HttpMethod.PUT, "/it-asset-registry/v1/" + ASSET + "/control/deploy", TENANT, "alice"), 204).orElseThrow();
+        var described = AuditEntryDescriber.describe(request(HttpMethod.PUT, "/it-asset-registry/v1/" + ASSET + "/control/deploy", TENANT, "alice"), 204, "").orElseThrow();
 
         assertEquals(TENANT, described.tenantId());
         assertEquals("alice", described.actor());
@@ -73,11 +75,23 @@ class AuditTest {
     }
 
     @Test
+    @DisplayName("an executor that looks like an email is recorded as a keyed pseudonym, never as the address")
+    void emailExecutorIsPseudonymised() {
+        var keyed = AuditEntryDescriber.describe(request(HttpMethod.PUT, "/it-asset-registry/v1/" + ASSET + "/control/ready", TENANT, "Alice@Example.com"), 204, "k3y").orElseThrow();
+        var unkeyed = AuditEntryDescriber.describe(request(HttpMethod.PUT, "/it-asset-registry/v1/" + ASSET + "/control/ready", TENANT, "alice@example.com"), 204, "").orElseThrow();
+
+        assertTrue(keyed.actor().matches("user:[0-9a-f]{32}"), keyed.actor());
+        assertEquals(keyed.actor(), "user:" + AuditPseudonymizer.of("k3y", "alice@example.com"));
+        assertEquals("user:unkeyed", unkeyed.actor());
+        assertFalse(keyed.actor().toLowerCase().contains("alice"));
+    }
+
+    @Test
     @DisplayName("every identifier is masked in the action, a path without one has no resource id, a missing executor is 'unknown'")
     void masksAndDefaults() {
-        var two = AuditEntryDescriber.describe(request(HttpMethod.POST, "/it-topology-graph/v1/edge/" + ASSET + "/x/" + TENANT, TENANT, null), 201).orElseThrow();
-        var none = AuditEntryDescriber.describe(request(HttpMethod.POST, "/it-asset-registry/v1/initiate", TENANT, ""), 201).orElseThrow();
-        var rootOnly = AuditEntryDescriber.describe(request(HttpMethod.DELETE, "/it-asset-registry", TENANT, "bob"), 404).orElseThrow();
+        var two = AuditEntryDescriber.describe(request(HttpMethod.POST, "/it-topology-graph/v1/edge/" + ASSET + "/x/" + TENANT, TENANT, null), 201, "").orElseThrow();
+        var none = AuditEntryDescriber.describe(request(HttpMethod.POST, "/it-asset-registry/v1/initiate", TENANT, ""), 201, "").orElseThrow();
+        var rootOnly = AuditEntryDescriber.describe(request(HttpMethod.DELETE, "/it-asset-registry", TENANT, "bob"), 404, "").orElseThrow();
 
         assertEquals("POST /it-topology-graph/v1/edge/{id}/x/{id}", two.action());
         assertEquals(ASSET, two.resourceId());
@@ -90,18 +104,18 @@ class AuditTest {
     @Test
     @DisplayName("reads, requests without a valid tenant, the ledger's own domain and an empty path are not audited")
     void skips() {
-        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.GET, "/it-asset-registry/v1/retrieve", TENANT, "a"), 200).isEmpty());
-        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.POST, "/it-asset-registry/v1/initiate", null, "a"), 201).isEmpty());
-        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.POST, "/it-asset-registry/v1/initiate", "not-a-uuid", "a"), 201).isEmpty());
-        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.POST, "/compliance-audit-ledger/v1/initiate", TENANT, "a"), 201).isEmpty());
-        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.POST, "/", TENANT, "a"), 404).isEmpty());
+        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.GET, "/it-asset-registry/v1/retrieve", TENANT, "a"), 200, "").isEmpty());
+        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.POST, "/it-asset-registry/v1/initiate", null, "a"), 201, "").isEmpty());
+        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.POST, "/it-asset-registry/v1/initiate", "not-a-uuid", "a"), 201, "").isEmpty());
+        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.POST, "/compliance-audit-ledger/v1/initiate", TENANT, "a"), 201, "").isEmpty());
+        assertTrue(AuditEntryDescriber.describe(request(HttpMethod.POST, "/", TENANT, "a"), 404, "").isEmpty());
     }
 
     @Test
     @DisplayName("fields longer than the ledger accepts are truncated rather than rejected")
     void truncates() {
         String longDomain = "d".repeat(300);
-        var described = AuditEntryDescriber.describe(request(HttpMethod.POST, "/" + longDomain + "/v1/x", TENANT, "e".repeat(300)), 201).orElseThrow();
+        var described = AuditEntryDescriber.describe(request(HttpMethod.POST, "/" + longDomain + "/v1/x", TENANT, "e".repeat(300)), 201, "").orElseThrow();
 
         assertEquals(200, described.resourceType().length());
         assertEquals(200, described.actor().length());
@@ -171,6 +185,92 @@ class AuditTest {
 
         assertEquals(1.0, meters.counter("gateway.audit.dropped").count());
         verify(client, never()).exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class));
+    }
+
+    // ------------------------------------------------------------ data minimisation (PCI / LGPD / HIPAA discipline)
+
+    private static byte[] credentials(String organisation, String email, String password) {
+        return ("{\"organisationId\":\"" + organisation + "\",\"email\":\"" + email + "\",\"password\":\"" + password + "\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    @Test
+    @DisplayName("a sign-in is recorded with the organisation, a keyed pseudonym and the status - and NEITHER the password NOR the email reaches the ledger")
+    void signInNeverLeaksCredentialsOrEmail() {
+        properties.setEnabled(true);
+        properties.setPseudonymKey("k3y");
+        when(client.exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class))).thenReturn(Mono.just(HttpResponse.created("{}")));
+
+        recorder.recordSignIn(credentials(TENANT, "Alice@Example.com", "s3cr3t-P@ss"), 200);
+
+        ArgumentCaptor<HttpRequest> sent = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(client).exchange(sent.capture(), any(Argument.class), any(Argument.class));
+        String everything = sent.getValue().getBody().orElseThrow() + " " + sent.getValue().getHeaders().asMap() + " " + sent.getValue().getUri();
+        assertFalse(everything.contains("s3cr3t-P@ss"), everything);
+        assertFalse(everything.toLowerCase().contains("alice"), everything);
+        assertFalse(everything.contains("example.com"), everything);
+        Map<String, Object> body = (Map<String, Object>) sent.getValue().getBody().orElseThrow();
+        assertEquals(TENANT, sent.getValue().getHeaders().get("X-Tenant-Id"));
+        assertEquals("POST /party-authentication/v1/session/initiate", body.get("action"));
+        assertEquals("status=200", body.get("detail"));
+        assertEquals("party-authentication", body.get("resourceType"));
+        assertTrue(((String) body.get("actor")).matches("login:[0-9a-f]{32}"), String.valueOf(body.get("actor")));
+    }
+
+    @Test
+    @DisplayName("the pseudonym is stable per person (case and spaces ignored), differs between people and between keys, and an unkeyed gateway records login:unkeyed - never a plain hash")
+    void pseudonymsAreKeyedAndStable() {
+        String alice = AuditPseudonymizer.of("k3y", "alice@example.com");
+
+        assertEquals(alice, AuditPseudonymizer.of("k3y", "  ALICE@example.com "));
+        assertNotEquals(alice, AuditPseudonymizer.of("k3y", "bob@example.com"));
+        assertNotEquals(alice, AuditPseudonymizer.of("other-key", "alice@example.com"));
+        assertEquals("unkeyed", AuditPseudonymizer.of("", "alice@example.com"));
+        assertEquals("unkeyed", AuditPseudonymizer.of(null, "alice@example.com"));
+        assertEquals(32, alice.length());
+        assertThrows(IllegalStateException.class, () -> AuditPseudonymizer.hmac("NOT-AN-ALGORITHM", "k", "v"));
+    }
+
+    @Test
+    @DisplayName("sign-in description: an unkeyed gateway, a missing or non-text email, and an unusable organisation id")
+    void signInDescriptionEdges() {
+        assertEquals("login:unkeyed", AuditEntryDescriber.describeSignIn(TENANT, "a@b.co", 401, "").orElseThrow().actor());
+        assertEquals("login:unknown", AuditEntryDescriber.describeSignIn(TENANT, null, 401, "k").orElseThrow().actor());
+        assertEquals("login:unknown", AuditEntryDescriber.describeSignIn(TENANT, "  ", 401, "k").orElseThrow().actor());
+        assertEquals("login:unknown", AuditEntryDescriber.describeSignIn(TENANT, 42, 401, "k").orElseThrow().actor());
+        assertTrue(AuditEntryDescriber.describeSignIn(null, "a@b.co", 401, "k").isEmpty());
+        assertTrue(AuditEntryDescriber.describeSignIn(42, "a@b.co", 401, "k").isEmpty());
+        assertTrue(AuditEntryDescriber.describeSignIn("not-a-uuid", "a@b.co", 401, "k").isEmpty());
+        assertEquals(TENANT, AuditEntryDescriber.describeSignIn("  " + TENANT + " ", "a@b.co", 200, "k").orElseThrow().tenantId());
+    }
+
+    @Test
+    @DisplayName("sign-in recording does nothing when auditing is off, with no body, or with a body that is not JSON (the parse error is never kept)")
+    void signInNotRecorded() {
+        recorder.recordSignIn(credentials(TENANT, "a@b.co", "pw"), 200);
+        properties.setEnabled(true);
+        recorder.recordSignIn(null, 200);
+        recorder.recordSignIn("password=hunter2 not json".getBytes(java.nio.charset.StandardCharsets.UTF_8), 400);
+        recorder.recordSignIn("[1,2]".getBytes(java.nio.charset.StandardCharsets.UTF_8), 400);
+        recorder.recordSignIn(("{\"organisationId\":\"nope\",\"email\":\"a@b.co\",\"password\":\"hunter2\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8), 400);
+
+        verify(client, never()).exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class));
+        assertEquals(0.0, meters.counter("gateway.audit.dropped").count());
+    }
+
+    @Test
+    @DisplayName("a mutation never puts the query string, headers other than tenant/executor, or any body on the ledger")
+    void mutationRecordsOnlyAllowListedFields() {
+        properties.setEnabled(true);
+        when(client.exchange(any(HttpRequest.class), any(Argument.class), any(Argument.class))).thenReturn(Mono.just(HttpResponse.created("{}")));
+        HttpRequest<?> request = HttpRequest.create(HttpMethod.POST, "/it-asset-registry/v1/initiate?token=abc123&email=a@b.co")
+                .header("X-Tenant-Id", TENANT).header("X-Executor", "alice").header("Authorization", "Bearer eyJsecret").body("{\"serialNumber\":\"PII-123\"}");
+
+        recorder.record(request, 201);
+
+        ArgumentCaptor<HttpRequest> sent = ArgumentCaptor.forClass(HttpRequest.class);
+        verify(client).exchange(sent.capture(), any(Argument.class), any(Argument.class));
+        String everything = sent.getValue().getBody().orElseThrow() + " " + sent.getValue().getHeaders().asMap();
+        assertFalse(everything.contains("abc123") || everything.contains("a@b.co") || everything.contains("eyJsecret") || everything.contains("PII-123"), everything);
     }
 
     @Test

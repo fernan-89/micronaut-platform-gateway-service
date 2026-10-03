@@ -68,6 +68,8 @@ With `GATEWAY_AUDIT_ENABLED=true` every mutating request that carries a tenant i
 completes - asynchronously and fail-open, so a ledger outage never touches the request (it is counted in `gateway.audit.dropped`).
 Off by default. See ADR-023.
 
+What is recorded is chosen by an allow-list (ADR-024): the tenant, the actor, the method and the path with identifiers masked, the Service Domain, the first resource id and the status - never the query string, a body, a token or any other header. A sign-in attempt is recorded too, but of its body only the organisation id is used: the email becomes a keyed pseudonym (`GATEWAY_AUDIT_PSEUDONYM_KEY`; without a key it is `login:unkeyed`) and **the password is never read into an entry, logged or forwarded**.
+
 ## Error catalog
 
 | Code | HTTP | Meaning |

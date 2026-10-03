@@ -46,12 +46,16 @@ import java.net.URL;
 @Controller("/")
 public class GatewayController {
 
+    private static final String SIGN_IN = AuditEntryDescriber.SIGN_IN_PATH.substring(1);
+
     private final UpstreamProxy proxy;
     private final StaticResourceResolver staticResourceResolver;
+    private final AuditRecorder auditRecorder;
 
-    public GatewayController(UpstreamProxy proxy, StaticResourceResolver staticResourceResolver) {
+    public GatewayController(UpstreamProxy proxy, StaticResourceResolver staticResourceResolver, AuditRecorder auditRecorder) {
         this.proxy = proxy;
         this.staticResourceResolver = staticResourceResolver;
+        this.auditRecorder = auditRecorder;
     }
 
     @Get("/{+path}")
@@ -88,7 +92,13 @@ public class GatewayController {
     @Post("/{+path}")
     @Consumes(MediaType.ALL)
     public Mono<MutableHttpResponse<byte[]>> post(HttpRequest<?> request, @PathVariable String path, @Body @Nullable byte[] body) {
-        return proxy.forward(request, body);
+        Mono<MutableHttpResponse<byte[]>> forwarded = proxy.forward(request, body);
+        if (!SIGN_IN.equals(path)) {
+            return forwarded;
+        }
+        // Sign-in carries its tenant only in the body, so the audit filter cannot see it: record it here, with the data-minimisation
+        // rules of AuditEntryDescriber.describeSignIn (never the password, the email only as a keyed pseudonym).
+        return forwarded.doOnSuccess(response -> auditRecorder.recordSignIn(body, response.getStatus().getCode()));
     }
 
     @Put("/{+path}")

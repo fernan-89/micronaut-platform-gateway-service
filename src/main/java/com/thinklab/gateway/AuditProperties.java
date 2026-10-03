@@ -10,6 +10,7 @@ import io.micronaut.context.annotation.ConfigurationProperties;
 public class AuditProperties {
 
     private boolean enabled = false;
+    private String pseudonymKey = "";
 
     public boolean isEnabled() {
         return enabled;
@@ -17,5 +18,14 @@ public class AuditProperties {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    /** Secret used to pseudonymise personal identifiers (sign-in emails) before they reach the ledger; empty = not keyed. */
+    public String getPseudonymKey() {
+        return pseudonymKey;
+    }
+
+    public void setPseudonymKey(String pseudonymKey) {
+        this.pseudonymKey = pseudonymKey;
     }
 }

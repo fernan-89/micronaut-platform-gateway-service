@@ -7,6 +7,7 @@ import io.micronaut.http.HttpRequest;
 import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
+import io.micronaut.json.JsonMapper;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -16,6 +17,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.util.concurrent.Queues;
 
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -39,13 +41,15 @@ public class AuditRecorder {
     private final HttpClient client;
     private final AuditProperties properties;
     private final MeterRegistry meters;
+    private final JsonMapper json;
     private final Sinks.Many<Described> queue = Sinks.many().unicast().onBackpressureBuffer(Queues.<Described>get(QUEUE_CAPACITY).get());
 
     @Inject
-    public AuditRecorder(@Client("gateway-audit") HttpClient client, AuditProperties properties, MeterRegistry meters) {
+    public AuditRecorder(@Client("gateway-audit") HttpClient client, AuditProperties properties, MeterRegistry meters, JsonMapper json) {
         this.client = client;
         this.properties = properties;
         this.meters = meters;
+        this.json = json;
         queue.asFlux().concatMap(this::append).subscribe();
     }
 
@@ -55,11 +59,32 @@ public class AuditRecorder {
 
     /** Returns immediately: the entry is queued and appended in order, off the request path. */
     void record(HttpRequest<?> request, int status) {
-        AuditEntryDescriber.describe(request, status).ifPresent(entry -> {
-            if (queue.tryEmitNext(entry).isFailure()) {
-                dropped(entry, "the audit queue is full");
-            }
-        });
+        AuditEntryDescriber.describe(request, status, properties.getPseudonymKey()).ifPresent(this::enqueue);
+    }
+
+    private void enqueue(Described entry) {
+        if (queue.tryEmitNext(entry).isFailure()) {
+            dropped(entry, "the audit queue is full");
+        }
+    }
+
+    /**
+     * Records a sign-in attempt (the caller already has the response status). Data minimisation: see
+     * {@link AuditEntryDescriber#describeSignIn}. A body that cannot be parsed is simply not recorded - and the parse error is
+     * deliberately neither logged nor kept, because its message can quote the very text (the password) we must never retain.
+     */
+    void recordSignIn(byte[] body, int status) {
+        if (!enabled() || body == null) {
+            return;
+        }
+        Map<String, Object> credentials;
+        try {
+            credentials = json.readValue(body, Argument.mapOf(String.class, Object.class));
+        } catch (IOException | RuntimeException unreadable) {
+            return;
+        }
+        AuditEntryDescriber.describeSignIn(credentials.get("organisationId"), credentials.get("email"), status, properties.getPseudonymKey())
+                .ifPresent(this::enqueue);
     }
 
     @PreDestroy
