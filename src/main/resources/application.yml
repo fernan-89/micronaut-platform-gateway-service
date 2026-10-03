@@ -133,6 +133,7 @@ gateway:
     compliance-audit-ledger: ${GATEWAY_COMPLIANCE_AUDIT_LEDGER_URL:`http://localhost:8094`}
     subscription-billing: ${GATEWAY_SUBSCRIPTION_BILLING_URL:`http://localhost:8095`}
     consumable-inventory: ${GATEWAY_CONSUMABLE_INVENTORY_URL:`http://localhost:8096`}
+    identity-federation: ${GATEWAY_IDENTITY_FEDERATION_URL:`http://localhost:8097`}
   # ADR-032 of the ledger service: record every mutating request that carries a tenant on the compliance ledger.
   # Off by default; asynchronous and fail-open (a ledger outage never affects the request).
   audit:
@@ -145,7 +146,17 @@ gateway:
   denied-paths:
     - /party-authentication/v1/token
     - /party-authentication/v1/session/revoked
+    - /party-authentication/v1/session/federated
   max-body-bytes: 1048576
+  # The refresh token lives in this HttpOnly cookie, never in page scripts (ADR-025). path is as the BROWSER sees it (behind the web app's /api
+  # prefix); secure is turned off only for plain-http local development. complete-url/login-url are where the browser lands after a
+  # federated sign-in (success / failure), on the web app.
+  session-cookie:
+    name: ${GATEWAY_SESSION_COOKIE_NAME:thinklab_rt}
+    path: ${GATEWAY_SESSION_COOKIE_PATH:/api/gateway/v1/session}
+    secure: ${GATEWAY_SESSION_COOKIE_SECURE:true}
+    complete-url: ${GATEWAY_SSO_COMPLETE_URL:/sso/complete}
+    login-url: ${GATEWAY_SSO_LOGIN_URL:/login}
   rate-limit:
     requests-per-second: ${GATEWAY_RATE_LIMIT_RPS:50}
     burst: ${GATEWAY_RATE_LIMIT_BURST:100}
@@ -181,3 +192,8 @@ thinklab:
       # response an unknown domain gets, never a 401 that would hint the path exists.
       - /party-authentication/v1/token
       - /party-authentication/v1/session/revoked
+      - /party-authentication/v1/session/federated
+      # The gateway's own session endpoints (cookie bridge, ADR-025) authenticate with the refresh cookie, and the federation sign-in routes
+      # are reached by a person who has no token yet.
+      - /gateway/v1/session
+      - /identity-federation/v1/login

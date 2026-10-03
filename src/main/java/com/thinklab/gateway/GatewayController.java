@@ -47,20 +47,25 @@ import java.net.URL;
 public class GatewayController {
 
     private static final String SIGN_IN = AuditEntryDescriber.SIGN_IN_PATH.substring(1);
+    private static final String FEDERATION_CALLBACK = "identity-federation/v1/login/callback";
 
     private final UpstreamProxy proxy;
     private final StaticResourceResolver staticResourceResolver;
     private final AuditRecorder auditRecorder;
+    private final SessionBridge sessionBridge;
 
-    public GatewayController(UpstreamProxy proxy, StaticResourceResolver staticResourceResolver, AuditRecorder auditRecorder) {
+    public GatewayController(UpstreamProxy proxy, StaticResourceResolver staticResourceResolver, AuditRecorder auditRecorder, SessionBridge sessionBridge) {
         this.proxy = proxy;
         this.staticResourceResolver = staticResourceResolver;
         this.auditRecorder = auditRecorder;
+        this.sessionBridge = sessionBridge;
     }
 
     @Get("/{+path}")
     public Mono<MutableHttpResponse<byte[]>> get(HttpRequest<?> request, @PathVariable String path) {
-        return staticResource(path).switchIfEmpty(Mono.defer(() -> proxy.forward(request, null)));
+        Mono<MutableHttpResponse<byte[]>> served = staticResource(path).switchIfEmpty(Mono.defer(() -> proxy.forward(request, null)));
+        // The federation callback answers the session as JSON; the refresh token goes into an HttpOnly cookie before it can reach the page (ADR-025).
+        return FEDERATION_CALLBACK.equals(path) ? served.map(sessionBridge::completeFederatedLogin) : served;
     }
 
     private Mono<MutableHttpResponse<byte[]>> staticResource(String path) {

@@ -18,12 +18,14 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,13 +43,27 @@ class GatewayControllerTest {
     private final UpstreamProxy proxy = mock(UpstreamProxy.class);
     private final StaticResourceResolver staticResourceResolver = mock(StaticResourceResolver.class);
     private final AuditRecorder auditRecorder = mock(AuditRecorder.class);
+    private final SessionBridge sessionBridge = mock(SessionBridge.class);
     private final HttpRequest<?> request = mock(HttpRequest.class);
     private GatewayController controller;
 
     @BeforeEach
     void setUp() {
         lenient().when(staticResourceResolver.resolve(any())).thenReturn(Optional.empty());
-        controller = new GatewayController(proxy, staticResourceResolver, auditRecorder);
+        controller = new GatewayController(proxy, staticResourceResolver, auditRecorder, sessionBridge);
+    }
+
+    @Test
+    @DisplayName("the federation callback's answer goes through the session bridge (refresh token into a cookie); any other GET is relayed untouched")
+    void federationCallbackIsBridged() {
+        MutableHttpResponse<byte[]> upstream = mock(MutableHttpResponse.class);
+        MutableHttpResponse<byte[]> bridged = mock(MutableHttpResponse.class);
+        when(proxy.forward(request, null)).thenReturn(Mono.just(upstream));
+        when(sessionBridge.completeFederatedLogin(upstream)).thenReturn(bridged);
+
+        assertSame(bridged, controller.get(request, "identity-federation/v1/login/callback").block());
+        assertSame(upstream, controller.get(request, "it-asset-registry/v1/retrieve").block());
+        verify(sessionBridge, times(1)).completeFederatedLogin(any());
     }
 
     @Test

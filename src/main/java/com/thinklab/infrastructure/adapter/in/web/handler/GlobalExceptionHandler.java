@@ -90,6 +90,8 @@ public class GlobalExceptionHandler implements ExceptionHandler<Throwable, HttpR
     private HttpResponse<Map<String, Object>> handleBusinessException(BusinessException ex, String path) {
         HttpStatus status = switch (ex.getErrorCode()) {
             case "ERR-GTW-00404" -> HttpStatus.NOT_FOUND;
+            case "ERR-GTW-00401" -> HttpStatus.UNAUTHORIZED;
+            case "ERR-GTW-00403" -> HttpStatus.FORBIDDEN;
             case "ERR-GTW-00413" -> HttpStatus.REQUEST_ENTITY_TOO_LARGE;
             case "ERR-GTW-00502" -> HttpStatus.BAD_GATEWAY;
             case "ERR-GTW-00504" -> HttpStatus.GATEWAY_TIMEOUT;

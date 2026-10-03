@@ -1,6 +1,8 @@
 package com.thinklab.infrastructure.adapter.in.web.handler;
 
+import com.thinklab.domain.exception.CsrfRejectedException;
 import com.thinklab.domain.exception.PayloadTooLargeException;
+import com.thinklab.domain.exception.SessionUnauthenticatedException;
 import com.thinklab.domain.exception.RouteNotFoundException;
 import com.thinklab.domain.exception.UpstreamTimeoutException;
 import com.thinklab.domain.exception.UpstreamUnavailableException;
@@ -64,6 +66,13 @@ class GlobalExceptionHandlerTest {
     @DisplayName("RouteNotFoundException maps to 404")
     void notFound() {
         assertProblem(handler.handle(request, new RouteNotFoundException("no route")), HttpStatus.NOT_FOUND, "ERR-GTW-00404");
+    }
+
+    @Test
+    @DisplayName("the session endpoints refuse with 401 (no session to refresh) and 403 (not from the web app)")
+    void sessionRefusals() {
+        assertProblem(handler.handle(request, new SessionUnauthenticatedException()), HttpStatus.UNAUTHORIZED, "ERR-GTW-00401");
+        assertProblem(handler.handle(request, new CsrfRejectedException()), HttpStatus.FORBIDDEN, "ERR-GTW-00403");
     }
 
     @Test

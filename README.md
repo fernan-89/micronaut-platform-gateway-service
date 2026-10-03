@@ -70,10 +70,24 @@ Off by default. See ADR-023.
 
 What is recorded is chosen by an allow-list (ADR-024): the tenant, the actor, the method and the path with identifiers masked, the Service Domain, the first resource id and the status - never the query string, a body, a token or any other header. A sign-in attempt is recorded too, but of its body only the organisation id is used: the email becomes a keyed pseudonym (`GATEWAY_AUDIT_PSEUDONYM_KEY`; without a key it is `login:unkeyed`) and **the password is never read into an entry, logged or forwarded**.
 
+## Session cookie (ADR-025)
+
+The refresh token never reaches page scripts: the gateway keeps it in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie (`gateway.session-cookie.*`).
+
+| Route | What it does |
+|---|---|
+| `POST /gateway/v1/session/refresh` | Exchanges the cookie for a new access token and rotates the cookie (needs `X-Requested-With: thinklab-web`) |
+| `POST /gateway/v1/session/logout` | Revokes the session and clears the cookie (same header) |
+| `GET /identity-federation/v1/login/callback` | Proxied, but the refresh token in the answer is moved into the cookie and the browser is redirected to the web app |
+
+`/party-authentication/v1/session/federated` is internal and denied here.
+
 ## Error catalog
 
 | Code | HTTP | Meaning |
 |---|---|---|
+| `ERR-GTW-00401` | 401 | No active session to refresh (no refresh cookie, or the identity service refused it) |
+| `ERR-GTW-00403` | 403 | A session endpoint was called without the web app's `X-Requested-With: thinklab-web` header |
 | `ERR-GTW-00404` | 404 | No route configured for the domain, or the path is denied |
 | `ERR-GTW-00413` | 413 | Request body exceeds `gateway.max-body-bytes` |
 | `ERR-GTW-00429` | 429 | Rate limit exceeded (`Retry-After` header carries the wait, in seconds) |
