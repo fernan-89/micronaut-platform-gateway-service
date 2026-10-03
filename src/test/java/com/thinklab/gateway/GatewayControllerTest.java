@@ -11,6 +11,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -89,7 +90,7 @@ class GatewayControllerTest {
     @Test
     @DisplayName("GET falls through to the proxy when the resolved resource fails to be read")
     void getFallsThroughWhenStaticResourceReadFails() throws IOException {
-        URL unreadable = new URL("file:/this/path/does/not/exist/on/disk.css");
+        URL unreadable = URI.create("file:/this/path/does/not/exist/on/disk.css").toURL();
         when(staticResourceResolver.resolve("/swagger-ui/broken.css")).thenReturn(Optional.of(unreadable));
         MutableHttpResponse<byte[]> response = mock(MutableHttpResponse.class);
         when(proxy.forward(request, null)).thenReturn(Mono.just(response));
