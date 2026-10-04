@@ -142,6 +142,7 @@ gateway:
     subscription-billing: ${GATEWAY_SUBSCRIPTION_BILLING_URL:`http://localhost:8095`}
     consumable-inventory: ${GATEWAY_CONSUMABLE_INVENTORY_URL:`http://localhost:8096`}
     identity-federation: ${GATEWAY_IDENTITY_FEDERATION_URL:`http://localhost:8097`}
+    it-incident-management: ${GATEWAY_IT_INCIDENT_MANAGEMENT_URL:`http://localhost:8098`}
   # ADR-032 of the ledger service: record every mutating request that carries a tenant on the compliance ledger.
   # Off by default; asynchronous and fail-open (a ledger outage never affects the request).
   audit:
