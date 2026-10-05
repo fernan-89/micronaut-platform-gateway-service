@@ -146,6 +146,7 @@ gateway:
     it-service-request: ${GATEWAY_IT_SERVICE_REQUEST_URL:`http://localhost:8099`}
     it-problem-management: ${GATEWAY_IT_PROBLEM_MANAGEMENT_URL:`http://localhost:8100`}
     it-knowledge-base: ${GATEWAY_IT_KNOWLEDGE_BASE_URL:`http://localhost:8101`}
+    it-external-ticketing: ${GATEWAY_IT_EXTERNAL_TICKETING_URL:`http://localhost:8102`}
   # ADR-032 of the ledger service: record every mutating request that carries a tenant on the compliance ledger.
   # Off by default; asynchronous and fail-open (a ledger outage never affects the request).
   audit:
@@ -222,3 +223,5 @@ thinklab:
       # are reached by a person who has no token yet.
       - /gateway/v1/session
       - /identity-federation/v1/login
+      # The ServiceNow and Jira webhooks cannot sign in: the connector identifies the connection by its path and proves the caller by its own token (connector ADR-032).
+      - /it-external-ticketing/v1/webhook
