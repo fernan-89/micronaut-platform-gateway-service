@@ -147,6 +147,7 @@ gateway:
     it-problem-management: ${GATEWAY_IT_PROBLEM_MANAGEMENT_URL:`http://localhost:8100`}
     it-knowledge-base: ${GATEWAY_IT_KNOWLEDGE_BASE_URL:`http://localhost:8101`}
     it-external-ticketing: ${GATEWAY_IT_EXTERNAL_TICKETING_URL:`http://localhost:8102`}
+    it-health-monitoring: ${GATEWAY_IT_HEALTH_MONITORING_URL:`http://localhost:8103`}
   # ADR-032 of the ledger service: record every mutating request that carries a tenant on the compliance ledger.
   # Off by default; asynchronous and fail-open (a ledger outage never affects the request).
   audit:
