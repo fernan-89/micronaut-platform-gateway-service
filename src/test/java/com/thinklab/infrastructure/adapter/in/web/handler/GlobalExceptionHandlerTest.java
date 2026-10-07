@@ -117,6 +117,23 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("a value outside a fixed list is a 400 that never repeats the value")
+    void unknownEnumValueIsNotEchoed() {
+        HttpResponse<Map<String, Object>> response = handler.handle(request, new IllegalArgumentException("No enum constant com.thinklab.X.password=hunter2"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatus());
+        String detail = String.valueOf(response.body().get("detail"));
+        assertTrue(detail.contains("outside the allowed list"));
+        assertTrue(!detail.contains("hunter2"));
+    }
+
+    @Test
+    @DisplayName("an illegal argument without a message is still a 400")
+    void illegalArgumentWithoutMessage() {
+        assertEquals(HttpStatus.BAD_REQUEST, handler.handle(request, new IllegalArgumentException()).getStatus());
+    }
+
+    @Test
     @DisplayName("an unmapped technical failure is a 500 problem carrying debug_info")
     void genericFailure() {
         Map<String, Object> body = assertProblem(handler.handle(request, new IllegalStateException("boom")), HttpStatus.INTERNAL_SERVER_ERROR, "ERR-INTERNAL-00500");
