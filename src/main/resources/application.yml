@@ -151,6 +151,7 @@ gateway:
     it-alerting: ${GATEWAY_IT_ALERTING_URL:`http://localhost:8104`}
     it-backup-registry: ${GATEWAY_IT_BACKUP_REGISTRY_URL:`http://localhost:8105`}
     it-patch-registry: ${GATEWAY_IT_PATCH_REGISTRY_URL:`http://localhost:8106`}
+    it-capacity-registry: ${GATEWAY_IT_CAPACITY_REGISTRY_URL:`http://localhost:8107`}
   # ADR-032 of the ledger service: record every mutating request that carries a tenant on the compliance ledger.
   # Off by default; asynchronous and fail-open (a ledger outage never affects the request).
   audit:
