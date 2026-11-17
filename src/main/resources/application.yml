@@ -159,6 +159,7 @@ gateway:
     it-dr-registry: ${GATEWAY_IT_DR_REGISTRY_URL:`http://localhost:8112`}
     it-cloud-inventory: ${GATEWAY_IT_CLOUD_INVENTORY_URL:`http://localhost:8113`}
     it-procurement: ${GATEWAY_IT_PROCUREMENT_URL:`http://localhost:8114`}
+    it-install-kit: ${GATEWAY_IT_INSTALL_KIT_URL:`http://localhost:8115`}
   # ADR-032 of the ledger service: record every mutating request that carries a tenant on the compliance ledger.
   # Off by default; asynchronous and fail-open (a ledger outage never affects the request).
   audit:
