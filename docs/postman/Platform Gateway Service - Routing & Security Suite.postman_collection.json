@@ -389,7 +389,12 @@
           ],
           "name": "06. Retrieve The Same Organisation Through The Gateway (200, proves the round trip)",
           "request": {
-            "header": [],
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              }
+            ],
             "method": "GET",
             "url": {
               "host": [
@@ -424,7 +429,12 @@
           ],
           "name": "07. A 4xx From The Upstream Itself Is Relayed Unchanged (404, not a gateway error_code)",
           "request": {
-            "header": [],
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              }
+            ],
             "method": "GET",
             "url": {
               "host": [
